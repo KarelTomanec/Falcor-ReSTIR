@@ -843,6 +843,7 @@ int main(int argc, char** argv)
     if (useSceneCacheFlag) options.useSceneCache = true;
     if (rebuildSceneCacheFlag) options.rebuildSceneCache = true;
     if (generateShaderDebugInfo) options.generateShaderDebugInfo = true;
+    options.generateShaderDebugInfo = true;
 
     try
     {
