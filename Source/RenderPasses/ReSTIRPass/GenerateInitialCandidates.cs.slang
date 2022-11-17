@@ -118,7 +118,7 @@ struct GenerateInitialCandidatesPass
 			let bsdf = gScene.materials.getBSDF(sd, lod);
 
             // Create surface data from the shading data and bsdf.
-            SurfaceData surfaceData = SurfaceData::create(sd, bsdf);
+            SurfaceData surfaceData = SurfaceData::create(sd, bsdf, primaryRayOrigin);
             gSurfaceData[getBufferIndex(pixel, gFrameDim)] = surfaceData.pack();
 
 			// Compute ray origin for new rays spawned from the G-buffer.
@@ -156,7 +156,7 @@ struct GenerateInitialCandidatesPass
                     }
 
                     float sourcePDF = lightSample.pdf;
-                    float targetPDF = surfaceData.evalTargetPDF(lightSample, viewVec, sg);
+                    float targetPDF = surfaceData.evalTargetPDF(lightSample, viewVec);
 
                     emissiveLightReservoir.update(lightSample.minLightSample, targetPDF, sourcePDF, sg);
                 }
@@ -185,7 +185,7 @@ struct GenerateInitialCandidatesPass
                     }
 
                     float sourcePDF = lightSample.pdf;
-                    float targetPDF = surfaceData.evalTargetPDF(lightSample, viewVec, sg);
+                    float targetPDF = surfaceData.evalTargetPDF(lightSample, viewVec);
 
                     environmentLightReservoir.update(lightSample.minLightSample, targetPDF, sourcePDF, sg);
                 }
@@ -211,6 +211,10 @@ struct GenerateInitialCandidatesPass
             outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
 #endif
             // outputReservoir.M = 1;
+        } else {
+            // Create invalid surface data.
+            SurfaceData invalidSurfaceData = SurfaceData::createInvalid();
+            gSurfaceData[getBufferIndex(pixel, gFrameDim)] = invalidSurfaceData.pack();
         }
         gReservoirs[getBufferIndex(pixel, gFrameDim)] = outputReservoir.pack();
         gDebugSameSamples[pixel] = float4(asfloat(outputReservoir.sample.typeIndex), 0, 0, 1);

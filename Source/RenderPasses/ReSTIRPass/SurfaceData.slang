@@ -21,7 +21,7 @@ struct PackedSurfaceData ///< 32 bytes
     uint specularWeight;
     uint diffuseWeight;
     uint specularRoughness;
-    uint pad0;
+    uint depth;
 }
 
 struct SurfaceData
@@ -31,16 +31,25 @@ struct SurfaceData
     float diffuseWeight;
     float specularWeight;
     float specularRoughness;
+    float depth;
 
-    static SurfaceData create(const ShadingData sd, const IBSDF bsdf)
+    static SurfaceData createInvalid()
     {
         SurfaceData surfaceData = {};
+        surfaceData.depth = -FLT_MAX;
+        return surfaceData;
+    }
+
+    static SurfaceData create(const ShadingData sd, const IBSDF bsdf, const float3 cameraPosition)
+    {
+        SurfaceData surfaceData;
         surfaceData.position = sd.posW;
         surfaceData.normal = sd.N;
         BSDFProperties bsdfProp = bsdf.getProperties(sd);
         surfaceData.diffuseWeight = luminance(bsdfProp.diffuseReflectionAlbedo);
         surfaceData.specularWeight = luminance(bsdfProp.specularReflectionAlbedo);
         surfaceData.specularRoughness = bsdfProp.roughness;
+        surfaceData.depth = distance(sd.posW, cameraPosition);
 
         return surfaceData;
 	}
@@ -53,6 +62,7 @@ struct SurfaceData
         surfaceData.diffuseWeight = asfloat(packedSurfaceData.diffuseWeight);
         surfaceData.specularWeight = asfloat(packedSurfaceData.specularWeight);
         surfaceData.specularRoughness = asfloat(packedSurfaceData.specularRoughness);
+        surfaceData.depth = asfloat(packedSurfaceData.depth);
 
         return surfaceData;
     }
@@ -65,6 +75,7 @@ struct SurfaceData
         packedSurfaceData.diffuseWeight = asuint(this.diffuseWeight);
         packedSurfaceData.specularWeight = asuint(this.specularWeight);
         packedSurfaceData.specularRoughness = asuint(this.specularRoughness);
+        packedSurfaceData.depth = asuint(this.depth);
 
         return packedSurfaceData;
     }
@@ -91,7 +102,7 @@ struct SurfaceData
         return wiDotN > 0.f ? lerp(specular, diffuse, diffuseSpecularMix) : 0.f;
     }
 
-    float evalTargetPDF<S : ISampleGenerator>(const LightSample sample, float3 wo, inout S sg)
+    float evalTargetPDF(const LightSample sample, float3 wo)
     {
         switch (sample.lightType)
         {
@@ -114,10 +125,17 @@ struct SurfaceData
         return 0.f;
 	}
 
-	float evalVisibility(float3 samplePosition)
-	{
+	float evalVisibility(LightSample lightSample)
+    {
+        float3 dirToSample = lightSample.getDirToSample(this.position);
+        float distToSample = lightSample.getDistanceToSample(this.position);
         SceneRayQuery<1> rayQuery;
-        const Ray ray = Ray(position, normalize(samplePosition - position), 0.1f, distance(position, samplePosition) - kShadowRayEpsilon);
+        const Ray ray = Ray(position, dirToSample, 0.1f, distToSample - kShadowRayEpsilon);
 		return rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
 	}
+
+    bool isValid()
+    {
+        return depth != -FLT_MAX;
+    }
 };

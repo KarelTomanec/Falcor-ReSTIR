@@ -59,12 +59,13 @@ struct SpatialReusePass
 
     LightSampler gLightSampler;
 
-	// Inputs
+	// Resources:
     StructuredBuffer<PackedReservoir> gReservoirs; ///< Buffer with packed reservoirs.
     StructuredBuffer<PackedSurfaceData> gSurfaceData;
-
-	// Outputs
 	RWStructuredBuffer<PackedReservoir> gOutReservoirs; ///< Output buffer with packed reservoirs.
+
+    // Debug:
+    RWTexture2D<float4> gDebug;
 
     uint2 getRandomNeighborPixel<S : ISampleGenerator>(uint2 pixel, inout S sg)
     {
@@ -99,11 +100,13 @@ struct SpatialReusePass
 
         // Create pixel Data for the current pixel.
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-
-        const float distCurrent = distance(surfaceData.position, primaryRayOrigin);
+        if (!surfaceData.isValid()) return;
 
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
-        float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec, sg);
+        float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
+#if UNBIASED_RAYTRACED
+        currReservoirTargetPDF *= surfaceData.evalVisibility(currLightSample);
+#endif
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
 #if BIASED
@@ -120,14 +123,13 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            const float3 primaryRayDirNeighbor = getPrimaryRayDir(neighborPixel, gFrameDim, gScene.camera);
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            const float distNeighbor = distance(neighborSurfaceData.position, primaryRayOrigin);
+            if (!neighborSurfaceData.isValid()) continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, distCurrent, distNeighbor)) continue;
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
-            float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec, sg);
+            float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 		}
 
@@ -148,20 +150,19 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            const float3 primaryRayDirNeighbor = getPrimaryRayDir(neighborPixel, gFrameDim, gScene.camera);
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            const float distNeighbor = distance(neighborSurfaceData.position, primaryRayOrigin);
+            if (!neighborSurfaceData.isValid()) continue;
 
-            if (!isValidNeighbor(surfacemData.normal, neighborSurfaceData.normal, distCurrent, distNeighbor)) continue;
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
-            float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec, sg);
+            float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 		}
 
         float Z = 0.f;
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
-        if (surfaceData.evalTargetPDF(outputLightSample, viewVec, sg))
+        if (surfaceData.evalTargetPDF(outputLightSample, viewVec))
         {
             Z += currentReservoir.M;
 		}
@@ -179,20 +180,18 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            const float3 primaryRayDirNeighbor = getPrimaryRayDir(neighborPixel, gFrameDim, gScene.camera);
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            const float distNeighbor = distance(neighborSurfaceData.position, primaryRayOrigin);
+            if (!neighborSurfaceData.isValid()) continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, distCurrent, distNeighbor)) continue;
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
 
-            if (neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec, sg))
+            if (neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec))
             {
                 Z += neighborReservoir.M;
 			}
-		}
-
-		float m = 1.f / Z;
-		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
+        }
+        float m = 1.f / Z;
+        outputReservoir.W = (outputReservoir.W > 0.f && !isinf(m)) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 
 #elif UNBIASED_MIS
 		int selectedSample = -1;
@@ -211,15 +210,16 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            const float3 primaryRayDirNeighbor = getPrimaryRayDir(neighborPixel, gFrameDim, gScene.camera);
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            const float distNeighbor = distance(neighborSurfaceData.position, primaryRayOrigin);
+            if (!neighborSurfaceData.isValid()) continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, distCurrent, distNeighbor)) continue;
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
-            float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec, sg);
+            float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
+#if UNBIASED_RAYTRACED
+            neighborReservoirTargetPDF *= surfaceData.evalVisibility(neighborLightSample);
+#endif
             if (outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg))
 			{
 				selectedSample = i;
@@ -228,7 +228,10 @@ struct SpatialReusePass
 
         float pSum = 0.f;
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
-        float currPixelTargetPDF = surfaceData.evalTargetPDF(outputLightSample, viewVec, sg);
+        float currPixelTargetPDF = surfaceData.evalTargetPDF(outputLightSample, viewVec);
+#if UNBIASED_RAYTRACED
+        currPixelTargetPDF *= surfaceData.evalVisibility(outputLightSample);
+#endif
         pSum += currPixelTargetPDF * currentReservoir.M;
 		float pStar;
 		if(selectedSample == -1)
@@ -249,101 +252,23 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            const float3 primaryRayDirNeighbor = getPrimaryRayDir(neighborPixel, gFrameDim, gScene.camera);
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            const float distNeighbor = distance(neighborSurfaceData.position, primaryRayOrigin);
+            if (!neighborSurfaceData.isValid()) continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, distCurrent, distNeighbor)) continue;
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
 
-            LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
-            float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(neighborLightSample, viewVec, sg);
+            float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec);
+#if UNBIASED_RAYTRACED
+            neighborPixelTargetPDF *= neighborSurfaceData.evalVisibility(outputLightSample);
+#endif
             pSum += neighborPixelTargetPDF * neighborReservoir.M;
 			if(selectedSample == i) {
 				pStar = neighborPixelTargetPDF;
 			}
 		}
 
-		float m = pStar / pSum;
-		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
-
-#elif UNBIASED_RAYTRACED
-		int selectedSample = -1;
-		TinyUniformSampleGenerator sg1 = sg;
-		TinyUniformSampleGenerator sg2 = sg;
-		[unroll]
-        for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
-        {
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1);
-
-			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
-
-			ShadingData sdNeighbor;
-			let lod = ExplicitLodTextureSampler(0.f);
-			if(!loadShadingData(neighborPixel, gFrameDim, gScene.camera, gVBuffer, lod, sdNeighbor)) return;
-
-            uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
-            Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
-
-            if (neighborReservoir.W == 0.0f) continue;
-
-			const float3 primaryRayDirNeighbor = getPrimaryRayDir(neighborPixel, gFrameDim, gScene.camera);
-			const float distNeighbor = distance(sdNeighbor.posW, primaryRayOrigin);
-			let bsdfNeighbor = gScene.materials.getBSDF(sdNeighbor, lod);
-
-			if(!isValidNeighbor(sd.N, sdNeighbor.N, distCurrent, distNeighbor)) continue;
-
-            float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborReservoir.sample, sg);
-            if (outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg))
-			{
-				selectedSample = i;
-			}
-		}
-
-        float pSum = 0.f;
-        float currPixelTargetPDF = surfaceData.evalTargetPDF(outputReservoir.sample, sg);
-        currPixelTargetPDF *= surfaceData.evalVisibility(outputReservoir.sample.pointS);
-        pSum += currPixelTargetPDF * currentReservoir.M;
-		float pStar;
-		if(selectedSample == -1)
-		{
-			pStar = currPixelTargetPDF;
-		}
-
-		[unroll]
-        for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
-        {
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
-
-			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
-
-			ShadingData sdNeighbor;
-			let lod = ExplicitLodTextureSampler(0.f);
-			if(!loadShadingData(neighborPixel, gFrameDim, gScene.camera, gVBuffer, lod, sdNeighbor)) return;
-
-            uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
-            Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
-            if (neighborReservoir.W == 0.0f) continue;
-
-			const float3 primaryRayDirNeighbor = getPrimaryRayDir(neighborPixel, gFrameDim, gScene.camera);
-			const float distNeighbor = distance(sdNeighbor.posW, primaryRayOrigin);
-			let bsdfNeighbor = gScene.materials.getBSDF(sdNeighbor, lod);
-
-			if(!isValidNeighbor(sd.N, sdNeighbor.N, distCurrent, distNeighbor)) continue;
-
-            SurfaceData neighborSurfaceData = SurfaceData::create(sdNeighbor, bsdfNeighbor);
-
-            float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(outputReservoir.sample, sg);
-            neighborPixelTargetPDF *= neighborSurfaceData.evalVisibility(outputReservoir.sample.pointS);
-            pSum += neighborPixelTargetPDF * neighborReservoir.M;
-			if(selectedSample == i) {
-				pStar = neighborPixelTargetPDF;
-			}
-		}
-
-		float m = pStar > 0 ? pStar / pSum : 0.0f;
-		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
+        float m = pStar / pSum;
+        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #endif
 		// Store reservoir
 		gOutReservoirs[bufferIndex] = outputReservoir.pack();

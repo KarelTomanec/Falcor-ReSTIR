@@ -501,6 +501,7 @@ void ReSTIRPass::temporalReusePass(RenderContext* pRenderContext, const RenderDa
 
     var["gPrevSurfaceData"] = mpPrevSurfaceData;
     var["gPrevReservoirs"] = mpPrevReservoirs;
+    var["gDebug"] = renderData.getTexture(kDebug);
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
     if (mpEnvironmentAliasTable)
@@ -530,6 +531,7 @@ void ReSTIRPass::spatialReusePass(RenderContext* pRenderContext, const RenderDat
 
     var["gReservoirs"] = mpPrevReservoirs;
     var["gOutReservoirs"] = mpReservoirs;
+    var["gDebug"] = renderData.getTexture(kDebug);
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
     if (mpEnvironmentAliasTable)
@@ -1037,7 +1039,7 @@ Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner
     defines.add("SPATIAL_REUSE_SAMPLE_RADIUS", std::to_string(owner.mReSTIRParams.spatialReuseSampleRadius));
 
     defines.add("UNBIASED_NAIVE", owner.mReSTIRParams.biasCorrection == ReSTIRPass::BiasCorrection::Naive ? "1" : "0");
-    defines.add("UNBIASED_MIS", owner.mReSTIRParams.biasCorrection == ReSTIRPass::BiasCorrection::MIS ? "1" : "0");
+    defines.add("UNBIASED_MIS", owner.mReSTIRParams.biasCorrection == ReSTIRPass::BiasCorrection::MIS || owner.mReSTIRParams.biasCorrection == ReSTIRPass::BiasCorrection::RayTraced ? "1" : "0");
     defines.add("UNBIASED_RAYTRACED", owner.mReSTIRParams.biasCorrection == ReSTIRPass::BiasCorrection::RayTraced ? "1" : "0");
     defines.add("BIASED", owner.mReSTIRParams.biasCorrection == ReSTIRPass::BiasCorrection::Off ? "1" : "0");
 
