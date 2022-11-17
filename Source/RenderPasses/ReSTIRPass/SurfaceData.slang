@@ -80,7 +80,7 @@ struct SurfaceData
         return packedSurfaceData;
     }
 
-    float evalBRDF(float3 wi, float3 wo)
+    float evalBRDF(const float3 wi, const float3 wo)
     {
         float wiDotN = saturate(dot(wi, normal));
         float woDotN = saturate(dot(wo, normal));
@@ -102,7 +102,7 @@ struct SurfaceData
         return wiDotN > 0.f ? lerp(specular, diffuse, diffuseSpecularMix) : 0.f;
     }
 
-    float evalTargetPDF(const LightSample sample, float3 wo)
+    float evalTargetPDF(const LightSample sample, const float3 wo)
     {
         switch (sample.lightType)
         {
@@ -125,7 +125,7 @@ struct SurfaceData
         return 0.f;
 	}
 
-	float evalVisibility(LightSample lightSample)
+    float evalVisibility(const LightSample lightSample)
     {
         float3 dirToSample = lightSample.getDirToSample(this.position);
         float distToSample = lightSample.getDistanceToSample(this.position);

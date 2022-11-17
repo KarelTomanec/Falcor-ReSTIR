@@ -38,7 +38,7 @@ struct MinimalLightSample
         return typeIndex != kInvalidSample;
     }
 
-    static MinimalLightSample createEmissive(uint index, float2 position)
+    static MinimalLightSample createEmissive(const uint index, const float2 position)
     {
         MinimalLightSample lightSample = {};
         lightSample.typeIndex = uint(Type::EmissiveGeometry) | uint(index & kIndexMask);
@@ -46,7 +46,7 @@ struct MinimalLightSample
         return lightSample;
     }
 
-    static MinimalLightSample createEnvironment(uint index, float2 position)
+    static MinimalLightSample createEnvironment(const uint index, const float2 position)
     {
         MinimalLightSample lightSample = {};
         lightSample.typeIndex = uint(Type::Environment) | uint(index & kIndexMask);
@@ -60,7 +60,7 @@ struct MinimalLightSample
         return packedLightSample;
     }
 
-    static MinimalLightSample unpack(PackedMinimalLightSample packedLightSample)
+    static MinimalLightSample unpack(const PackedMinimalLightSample packedLightSample)
     {
         MinimalLightSample lightSample = {};
         lightSample.typeIndex = packedLightSample.x;
@@ -136,7 +136,7 @@ struct LightSample
         return packedLightSample;
     }
 
-    static LightSample unpack(PackedLightSample packedLightSample)
+    static LightSample unpack(const PackedLightSample packedLightSample)
     {
         LightSample lightSample;
         lightSample.minLightSample = MinimalLightSample::unpack(packedLightSample.packedMinLightSample);
@@ -158,7 +158,7 @@ struct LightSample
         return lightSample;
     }
 
-    float getDistanceToSample(float3 position) {
+    float getDistanceToSample(const float3 position) {
         switch (lightType)
         {
         case LightSample::Type::AreaLight:
@@ -169,7 +169,7 @@ struct LightSample
         return 0;
     }
 
-    float3 getDirToSample(float3 position) {
+    float3 getDirToSample(const float3 position) {
         switch (lightType)
         {
         case LightSample::Type::AreaLight:
@@ -183,6 +183,11 @@ struct LightSample
 
 struct LightSampler
 {
+
+    static const float emissiveGeometrySampleWeight = float(LIGHT_TILE_EMISSIVE_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
+    static const float environmentSampleWeight = float(LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
+
+
     AliasTable emissiveGeometryAliasTable;
 
     Buffer<float> environmentLuminanceTable;
@@ -235,7 +240,7 @@ struct LightSampler
         lightSample.posDir = computeRayOrigin(triangle.getPosition(barycentrics), triangle.normal);
         lightSample.normal = triangle.normal;
         lightSample.Le = luminance(gScene.lightCollection.getAverageRadiance(index));
-        lightSample.pdf = lightSample.Le / emissiveGeometryAliasTable.weightSum;
+        lightSample.pdf = emissiveGeometrySampleWeight * lightSample.Le / emissiveGeometryAliasTable.weightSum;
 
         return lightSample;
     }
@@ -249,9 +254,8 @@ struct LightSampler
 
         lightSample.posDir = minLightSample.getEnvironmentDir();
         const uint texelIndex = minLightSample.getIndex();
-        float luminance = environmentLuminanceTable[texelIndex];
-        lightSample.Le = luminance;
-        lightSample.pdf = luminance / environmentAliasTable.weightSum;
+        lightSample.Le = environmentLuminanceTable[texelIndex];
+        lightSample.pdf = environmentSampleWeight * lightSample.Le / environmentAliasTable.weightSum;
 
         return lightSample;
     }
