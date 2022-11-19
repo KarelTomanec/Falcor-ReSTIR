@@ -67,17 +67,6 @@ struct SpatialReusePass
     // Debug:
     RWTexture2D<float4> gDebug;
 
-    uint2 getRandomNeighborPixel<S : ISampleGenerator>(uint2 pixel, inout S sg)
-    {
-        float rho = SPATIAL_REUSE_SAMPLE_RADIUS * sqrt(sampleNext1D(sg));
-        float theta = 2.0f * M_PI * sampleNext1D(sg);
-        float2 randomPixel = pixel;
-        randomPixel.x += rho * cos(theta);
-        randomPixel.y += rho * sin(theta);
-
-        return uint2(round(randomPixel));
-	}
-
 	void execute(const uint2 pixel)
 	{
 	    if (any(pixel >= gFrameDim)) return;

@@ -52,6 +52,7 @@ namespace
     const std::string kTemporalReusePassFilename = "RenderPasses/ReSTIRPass/TemporalReuse.cs.slang";
     const std::string kSpatialReusePassFilename = "RenderPasses/ReSTIRPass/SpatialReuse.cs.slang";
     const std::string kShadePassFilename = "RenderPasses/ReSTIRPass/Shade.cs.slang";
+    const std::string kSpatioTemporalReuseOnePassFilename = "RenderPasses/ReSTIRPass/SpatioTemporalReuseOne.cs.slang";
 
     const std::string kShaderModel = "6_5";
 
@@ -98,7 +99,7 @@ namespace
         { (uint32_t)ReSTIRPass::Mode::SpatialResampling, "Spatial resampling only" },
         { (uint32_t)ReSTIRPass::Mode::TemporalResampling, "Temporal resampling only" },
         { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResampling, "Spatiotemporal resampling" },
-        //{ (uint32_t)ReSTIRPass::Mode::SpatiotemporalResamplingOnePass, "Spatiotemporal resampling in one render pass" },
+        { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResamplingOnePass, "Spatiotemporal resampling in one render pass" },
     };
 
     Gui::DropdownList kBiasCorrectionList =
@@ -264,6 +265,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
     {
     case Mode::NoResampling:
         generateInitialCandidatesPass(pRenderContext, renderData);
+        shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatialResampling:
         generateInitialCandidatesPass(pRenderContext, renderData);
@@ -271,10 +273,12 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         {
             spatialReusePass(pRenderContext, renderData);
         }
+        shadePass(pRenderContext, renderData);
         break;
     case Mode::TemporalResampling:
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
+        shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatiotemporalResampling:
         generateInitialCandidatesPass(pRenderContext, renderData);
@@ -283,10 +287,12 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         {
             spatialReusePass(pRenderContext, renderData);
         }
+        shadePass(pRenderContext, renderData);
+        break;
+    case Mode::SpatiotemporalResamplingOnePass:
+        spatioTemporalReuseOnePass(pRenderContext, renderData);
         break;
     }
-
-    shadePass(pRenderContext, renderData);
 
     endFrame(pRenderContext, renderData);
 }
@@ -546,6 +552,44 @@ void ReSTIRPass::spatialReusePass(RenderContext* pRenderContext, const RenderDat
 
 }
 
+void ReSTIRPass::spatioTemporalReuseOnePass(RenderContext* pRenderContext, const RenderData& renderData)
+{
+    FALCOR_PROFILE("spatioTemporalReuseOnePass");
+
+    // Bind resources.
+    auto var = mpSpatioTemporalReuseOnePass->getRootVar()["CB"]["gSpatioTemporalReuseOnePass"];
+
+    var["gFrameDim"] = mFrameDim;
+    var["gFrameCount"] = mFrameCount;
+
+    var["gVBuffer"] = renderData.getTexture(kInputVBuffer);
+    var["gMotionVectors"] = renderData.getTexture(kInputMotionVectors);
+
+    var["gLightTiles"] = mpLightTiles;
+
+    var["gSurfaceData"] = mpSurfaceData;
+    var["gReservoirs"] = mpReservoirs;
+
+    var["gPrevSurfaceData"] = mpPrevSurfaceData;
+    var["gPrevReservoirs"] = mpPrevReservoirs;
+
+    var["gOutputColor"] = renderData.getTexture(kOutputColor);
+    var["gOutputAlbedo"] = renderData.getTexture(kOutputAlbedo);
+
+    var["gDebug"] = renderData.getTexture(kDebug);
+
+    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpEnvironmentAliasTable)
+    {
+        mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
+        var["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
+    }
+
+    mpSpatioTemporalReuseOnePass["gScene"] = mpScene->getParameterBlock();
+
+    mpSpatioTemporalReuseOnePass->execute(pRenderContext, { mFrameDim, 1u });
+}
+
 void ReSTIRPass::shadePass(RenderContext* pRenderContext, const RenderData& renderData)
 {
     FALCOR_PROFILE("shadePass");
@@ -663,6 +707,13 @@ void ReSTIRPass::updatePrograms()
         mpShadePass = ComputePass::create(desc, defines, false);
     }
 
+    if (!mpSpatioTemporalReuseOnePass)
+    {
+        Program::Desc desc = baseDesc;
+        desc.addShaderLibrary(kSpatioTemporalReuseOnePassFilename).csEntry("main");
+        mpSpatioTemporalReuseOnePass = ComputePass::create(desc, defines, false);
+    }
+
 
     // Perform program specialization.
     // Note that we must use set instead of add functions to replace any stale state.
@@ -676,12 +727,14 @@ void ReSTIRPass::updatePrograms()
     prepareProgram(mpTemporalReusePass->getProgram());
     prepareProgram(mpSpatialReusePass->getProgram());
     prepareProgram(mpShadePass->getProgram());
+    prepareProgram(mpSpatioTemporalReuseOnePass->getProgram());
 
     mpCreateLightTiles->setVars(nullptr);
     mpGenerateInitialCandidatesPass->setVars(nullptr);
     mpTemporalReusePass->setVars(nullptr);
     mpSpatialReusePass->setVars(nullptr);
     mpShadePass->setVars(nullptr);
+    mpSpatioTemporalReuseOnePass->setVars(nullptr);
 
     mVarsChanged = true;
     mRecompile = false;
@@ -1002,7 +1055,6 @@ void ReSTIRPass::endFrame(RenderContext* pRenderContext, const RenderData& rende
 
     pRenderContext->clearUAV(mpDebugSameSamples->getUAV().get(), uint4(0, 0, 0, 0));
 
-    //copyTexture(mpPrevVBuffer->asTexture().get(), renderData[kInputVBuffer]->asTexture().get()); // TODO: is this expensive?
     std::swap(mpReservoirs, mpPrevReservoirs);
     std::swap(mpSurfaceData, mpPrevSurfaceData);
 }

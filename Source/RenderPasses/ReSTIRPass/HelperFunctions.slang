@@ -67,3 +67,14 @@ float3 getPrimaryRayDir(uint2 launchIndex, uint2 launchDim, const Camera camera)
 uint getBufferIndex(uint2 pixel, uint2 frameDim) {
 	return pixel.y * frameDim.x + pixel.x;
 }
+
+uint2 getRandomNeighborPixel<S : ISampleGenerator>(uint2 pixel, inout S sg)
+{
+    float rho = SPATIAL_REUSE_SAMPLE_RADIUS * sqrt(sampleNext1D(sg));
+    float theta = 2.0f * M_PI * sampleNext1D(sg);
+    float2 randomPixel = pixel;
+    randomPixel.x += rho * cos(theta);
+    randomPixel.y += rho * sin(theta);
+
+    return uint2(round(randomPixel));
+}

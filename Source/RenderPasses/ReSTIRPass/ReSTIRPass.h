@@ -64,7 +64,7 @@ public:
         SpatialResampling,
         TemporalResampling,
         SpatiotemporalResampling,
-        //SpatiotemporalResamplingOnePass,
+        SpatiotemporalResamplingOnePass,
     };
 
     enum class BiasCorrection
@@ -109,6 +109,7 @@ private:
     void generateInitialCandidatesPass(RenderContext* pRenderContext, const RenderData& renderData);
     void temporalReusePass(RenderContext* pRenderContext, const RenderData& renderData);
     void spatialReusePass(RenderContext* pRenderContext, const RenderData& renderData);
+    void spatioTemporalReuseOnePass(RenderContext* pRenderContext, const RenderData& renderData);
     void shadePass(RenderContext* pRenderContext, const RenderData& renderData);
 
     void prepareRenderPass(const RenderData& renderData);
@@ -169,6 +170,7 @@ private:
     ComputePass::SharedPtr          mpTemporalReusePass;
     ComputePass::SharedPtr          mpSpatialReusePass;
     ComputePass::SharedPtr          mpShadePass;
+    ComputePass::SharedPtr          mpSpatioTemporalReuseOnePass;
 
     std::unique_ptr<TracePass>      mpTracePass;                ///< Main trace pass.
 
