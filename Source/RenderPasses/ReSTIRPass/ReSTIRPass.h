@@ -188,7 +188,6 @@ private:
     Buffer::SharedPtr               mpSurfaceData;
     Buffer::SharedPtr               mpPrevSurfaceData;
     Buffer::SharedPtr               mpPrevReservoirs;
-    Texture::SharedPtr              mpDebugSameSamples;
 
     // Emissive geometry sampling data
     AliasTable::SharedPtr mpEmissiveGeometryAliasTable;

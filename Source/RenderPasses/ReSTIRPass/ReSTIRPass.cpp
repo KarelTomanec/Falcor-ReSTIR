@@ -771,12 +771,6 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
         mpLightTiles = Buffer::createStructured(sizeof(uint4) * 2, elementCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
-    if (!mpDebugSameSamples || mpDebugSameSamples->getWidth() != mFrameDim.x || mpDebugSameSamples->getHeight() != mFrameDim.y)
-    {
-
-        mpDebugSameSamples = Texture::create2D(mFrameDim.x, mFrameDim.y, ResourceFormat::RGBA32Float, 1, 1, nullptr, ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess);
-    }
-
 }
 
 bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)
@@ -1052,8 +1046,6 @@ void ReSTIRPass::endFrame(RenderContext* pRenderContext, const RenderData& rende
             pRenderContext->clearUAV(pDst->getUAV().get(), uint4(0, 0, 0, 0));
         }
     };
-
-    pRenderContext->clearUAV(mpDebugSameSamples->getUAV().get(), uint4(0, 0, 0, 0));
 
     std::swap(mpReservoirs, mpPrevReservoirs);
     std::swap(mpSurfaceData, mpPrevSurfaceData);
