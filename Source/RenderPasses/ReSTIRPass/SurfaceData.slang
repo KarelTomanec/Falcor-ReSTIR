@@ -43,7 +43,7 @@ struct SurfaceData
     static SurfaceData create(const ShadingData sd, const IBSDF bsdf, const float3 cameraPosition)
     {
         SurfaceData surfaceData;
-        surfaceData.position = sd.posW;
+        surfaceData.position = sd.computeNewRayOrigin();
         surfaceData.normal = sd.N;
         BSDFProperties bsdfProp = bsdf.getProperties(sd);
         surfaceData.diffuseWeight = luminance(bsdfProp.diffuseReflectionAlbedo);

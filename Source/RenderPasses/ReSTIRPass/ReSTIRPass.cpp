@@ -51,7 +51,9 @@ namespace
     const std::string kGenerateInitialCandidatesPassFilename = "RenderPasses/ReSTIRPass/GenerateInitialCandidates.cs.slang";
     const std::string kTemporalReusePassFilename = "RenderPasses/ReSTIRPass/TemporalReuse.cs.slang";
     const std::string kSpatialReusePassFilename = "RenderPasses/ReSTIRPass/SpatialReuse.cs.slang";
+    const std::string kCreateDirectLightSampleFilename = "RenderPasses/ReSTIRPass/CreateDirectLightSamplesPass.cs.slang";
     const std::string kShadePassFilename = "RenderPasses/ReSTIRPass/Shade.cs.slang";
+
     const std::string kSpatioTemporalReuseOnePassFilename = "RenderPasses/ReSTIRPass/SpatioTemporalReuseOne.cs.slang";
 
     const std::string kShaderModel = "6_5";
@@ -265,6 +267,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
     {
     case Mode::NoResampling:
         generateInitialCandidatesPass(pRenderContext, renderData);
+        createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatialResampling:
@@ -273,11 +276,13 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         {
             spatialReusePass(pRenderContext, renderData);
         }
+        createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
     case Mode::TemporalResampling:
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
+        createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatiotemporalResampling:
@@ -287,6 +292,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         {
             spatialReusePass(pRenderContext, renderData);
         }
+        createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatiotemporalResamplingOnePass:
@@ -590,6 +596,34 @@ void ReSTIRPass::spatioTemporalReuseOnePass(RenderContext* pRenderContext, const
     mpSpatioTemporalReuseOnePass->execute(pRenderContext, { mFrameDim, 1u });
 }
 
+void ReSTIRPass::createDirectSamplesPass(RenderContext* pRenderContext, const RenderData& renderData)
+{
+    FALCOR_PROFILE("createDirectLightSamplesPass");
+
+    // Bind resources.
+    auto var = mpCreateDirectLightSamplesPass->getRootVar()["CB"]["gCreateDirectLightSamplesPass"];
+
+    var["gFrameDim"] = mFrameDim;
+    var["gFrameCount"] = mFrameCount;
+
+    var["gSurfaceData"] = mpSurfaceData;
+    var["gReservoirs"] = mpReservoirs;
+    var["gDirectLightSamples"] = mpDirectLightSamples;
+
+    var["gDebug"] = renderData.getTexture(kDebug);
+
+    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpEnvironmentAliasTable)
+    {
+        mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
+        var["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
+    }
+
+    mpCreateDirectLightSamplesPass["gScene"] = mpScene->getParameterBlock();
+
+    mpCreateDirectLightSamplesPass->execute(pRenderContext, { mFrameDim, 1u });
+}
+
 void ReSTIRPass::shadePass(RenderContext* pRenderContext, const RenderData& renderData)
 {
     FALCOR_PROFILE("shadePass");
@@ -601,7 +635,7 @@ void ReSTIRPass::shadePass(RenderContext* pRenderContext, const RenderData& rend
     var["gFrameCount"] = mFrameCount;
 
     var["gVBuffer"] = renderData.getTexture(kInputVBuffer);
-    var["gReservoirs"] = mpReservoirs;
+    var["gDirectLightSamples"] = mpDirectLightSamples;
 
     var["gOutputColor"] = renderData.getTexture(kOutputColor);
     var["gOutputAlbedo"] = renderData.getTexture(kOutputAlbedo);
@@ -700,13 +734,18 @@ void ReSTIRPass::updatePrograms()
         desc.addShaderLibrary(kSpatialReusePassFilename).csEntry("main");
         mpSpatialReusePass = ComputePass::create(desc, defines, false);
     }
+    if (!mpCreateDirectLightSamplesPass)
+    {
+        Program::Desc desc = baseDesc;
+        desc.addShaderLibrary(kCreateDirectLightSampleFilename).csEntry("main");
+        mpCreateDirectLightSamplesPass = ComputePass::create(desc, defines, false);
+    }
     if (!mpShadePass)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kShadePassFilename).csEntry("main");
         mpShadePass = ComputePass::create(desc, defines, false);
     }
-
     if (!mpSpatioTemporalReuseOnePass)
     {
         Program::Desc desc = baseDesc;
@@ -726,6 +765,7 @@ void ReSTIRPass::updatePrograms()
     prepareProgram(mpGenerateInitialCandidatesPass->getProgram());
     prepareProgram(mpTemporalReusePass->getProgram());
     prepareProgram(mpSpatialReusePass->getProgram());
+    prepareProgram(mpCreateDirectLightSamplesPass->getProgram());
     prepareProgram(mpShadePass->getProgram());
     prepareProgram(mpSpatioTemporalReuseOnePass->getProgram());
 
@@ -733,6 +773,7 @@ void ReSTIRPass::updatePrograms()
     mpGenerateInitialCandidatesPass->setVars(nullptr);
     mpTemporalReusePass->setVars(nullptr);
     mpSpatialReusePass->setVars(nullptr);
+    mpCreateDirectLightSamplesPass->setVars(nullptr);
     mpShadePass->setVars(nullptr);
     mpSpatioTemporalReuseOnePass->setVars(nullptr);
 
@@ -769,6 +810,11 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
     if (!mpLightTiles || mpLightTiles->getElementCount() < elementCount)
     {
         mpLightTiles = Buffer::createStructured(sizeof(uint4) * 2, elementCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
+    }
+
+    if (!mpDirectLightSamples || mpDirectLightSamples->getElementCount() < pixelCount)
+    {
+        mpDirectLightSamples = Buffer::createStructured(sizeof(uint4), pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
 }

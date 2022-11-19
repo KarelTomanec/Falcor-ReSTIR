@@ -312,8 +312,8 @@ struct SpatiotemporaReuseOnePass
                 spatioTemporalNeighborFound = true;
             }
 
-            spatioTemporalReservoir.M = min(historyLimit, spatioTemporalReservoir.M);
             spatioTemporalReservoir.W = spatioTemporalReservoir.W > 0.f ? (spatioTemporalReservoir.weightSum / spatioTemporalReservoir.M) / spatioTemporalReservoir.W : 0.f;
+            spatioTemporalReservoir.M = min(historyLimit, spatioTemporalReservoir.M);
             if (spatioTemporalNeighborFound) {
                 // Test visibility by tracing a shadow ray.
                 // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
@@ -353,12 +353,12 @@ struct SpatiotemporaReuseOnePass
 
             // SHADING -------------------------------------------------------------------------------------------
 
-            uint N = 2;
+            uint N = 3;
             let bsdfProperties = bsdf.getProperties(sd);
             float3 emission = bsdfProperties.emission;
             albedo = bsdfProperties.diffuseReflectionAlbedo + bsdfProperties.specularReflectionAlbedo;
 
-            Reservoir reservoirs[] = { outputReservoir,  prevReservoir };
+            Reservoir reservoirs[] = { outputReservoir,  prevReservoir, spatioTemporalReservoir };
 
             for (uint i = 0; i < N; i++) {
                 Reservoir reservoir = reservoirs[i];

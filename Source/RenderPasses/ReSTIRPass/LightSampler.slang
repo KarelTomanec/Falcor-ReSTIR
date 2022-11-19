@@ -9,7 +9,49 @@ import Utils.Math.FormatConversion;
 import Utils.Math.MathHelpers;
 import Utils.Math.PackedFormats;
 
-typedef uint2 PackedMinimalLightSample; ///< 8 bytes
+struct PackedDirectLightSample ///< 16 bytes
+{
+    uint direction;
+    uint Le;
+    uint distance;
+    uint _pad0;
+}
+
+struct DirectLightSample
+{
+    float3 direction;
+    float3 Le;
+    float distance;
+
+    PackedDirectLightSample pack()
+    {
+        PackedDirectLightSample packedDirectLightSample;
+
+        packedDirectLightSample.direction = encodeNormal2x16(this.direction);
+        packedDirectLightSample.Le = encodeLogLuvHDR(this.Le);
+        packedDirectLightSample.distance = asuint(this.distance);
+        packedDirectLightSample._pad0 = 0u;
+
+        return packedDirectLightSample;
+    }
+
+    static DirectLightSample unpack(const PackedDirectLightSample packedDirectLightSample)
+    {
+        DirectLightSample directLightSample;
+
+        directLightSample.direction = decodeNormal2x16(packedDirectLightSample.direction);
+        directLightSample.Le = decodeLogLuvHDR(packedDirectLightSample.Le);
+        directLightSample.distance = asfloat(packedDirectLightSample.distance);
+
+        return directLightSample;
+    }
+}
+
+struct PackedMinimalLightSample ///< 8 bytes
+{
+    uint typeIndex;
+    uint position;
+}
 
 struct MinimalLightSample
 {
@@ -56,15 +98,17 @@ struct MinimalLightSample
 
     PackedMinimalLightSample pack()
     {
-        PackedMinimalLightSample packedLightSample = uint2(this.typeIndex, packSnorm2x16(this.position));
+        PackedMinimalLightSample packedLightSample;
+        packedLightSample.typeIndex = this.typeIndex;
+        packedLightSample.position = packSnorm2x16(this.position);
         return packedLightSample;
     }
 
     static MinimalLightSample unpack(const PackedMinimalLightSample packedLightSample)
     {
         MinimalLightSample lightSample = {};
-        lightSample.typeIndex = packedLightSample.x;
-        lightSample.position = unpackSnorm2x16(packedLightSample.y);
+        lightSample.typeIndex = packedLightSample.typeIndex;
+        lightSample.position = unpackSnorm2x16(packedLightSample.position);
         return lightSample;
     }
 

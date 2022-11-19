@@ -109,8 +109,10 @@ private:
     void generateInitialCandidatesPass(RenderContext* pRenderContext, const RenderData& renderData);
     void temporalReusePass(RenderContext* pRenderContext, const RenderData& renderData);
     void spatialReusePass(RenderContext* pRenderContext, const RenderData& renderData);
-    void spatioTemporalReuseOnePass(RenderContext* pRenderContext, const RenderData& renderData);
+    void createDirectSamplesPass(RenderContext* pRenderContext, const RenderData& renderData);
     void shadePass(RenderContext* pRenderContext, const RenderData& renderData);
+
+    void spatioTemporalReuseOnePass(RenderContext* pRenderContext, const RenderData& renderData);
 
     void prepareRenderPass(const RenderData& renderData);
     void setShaderData(const ShaderVar& var, const RenderData& renderData, bool useLightSampling = true) const;
@@ -169,6 +171,7 @@ private:
     ComputePass::SharedPtr          mpGenerateInitialCandidatesPass;
     ComputePass::SharedPtr          mpTemporalReusePass;
     ComputePass::SharedPtr          mpSpatialReusePass;
+    ComputePass::SharedPtr          mpCreateDirectLightSamplesPass;
     ComputePass::SharedPtr          mpShadePass;
     ComputePass::SharedPtr          mpSpatioTemporalReuseOnePass;
 
@@ -184,6 +187,8 @@ private:
 
     // Textures and buffer
     Buffer::SharedPtr               mpReservoirs;
+
+    Buffer::SharedPtr               mpDirectLightSamples;
 
     Buffer::SharedPtr               mpSurfaceData;
     Buffer::SharedPtr               mpPrevSurfaceData;

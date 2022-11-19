@@ -87,7 +87,7 @@ struct SpatialReusePass
         const float3 primaryRayDir = getPrimaryRayDir(pixel, gFrameDim, gScene.camera);
         const float3 viewVec = -normalize(primaryRayDir);
 
-        // Create pixel Data for the current pixel.
+        // Get pixel Data for the current pixel.
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
         if (!surfaceData.isValid()) return;
 

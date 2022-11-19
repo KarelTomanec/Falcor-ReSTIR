@@ -56,9 +56,11 @@ struct ShadePass
 
     LightSampler gLightSampler;
 
-	// Resources:
-	Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
-    StructuredBuffer<PackedReservoir> gReservoirs; ///< Buffer with packed reservoirs.
+    // Resources:
+    Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
+
+    RWStructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
+
 	RWTexture2D<float4> gOutputColor;
     RWTexture2D<float4> gOutputAlbedo;
 
@@ -91,40 +93,15 @@ struct ShadePass
 			albedo = bsdfProperties.diffuseReflectionAlbedo + bsdfProperties.specularReflectionAlbedo;
 
             uint bufferIndex = getBufferIndex(pixel, gFrameDim);
-            Reservoir reservoir = Reservoir::unpack(gReservoirs[bufferIndex]);
-            LightSample lightSample = gLightSampler.getLightSample(reservoir.sample);
+
+            DirectLightSample directLightSample = DirectLightSample::unpack(gDirectLightSamples[bufferIndex]);
 
             float3 rayOrigin = sd.computeNewRayOrigin();
-            float3 dirToLight;
-            float distToLight;
-            float3 Li;
-            switch (lightSample.lightType)
-            {
-            case LightSample::Type::AreaLight:
-                {
-                    float3 originToLight = lightSample.posDir - rayOrigin;
-                    dirToLight = normalize(originToLight);
-                    float distSqr = max(FLT_MIN, dot(originToLight, originToLight));
-                    float geometryFactor = max(0.f, dot(lightSample.normal, -dirToLight)) / distSqr;
-                    distToLight = sqrt(distSqr);
-                    Li = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W * geometryFactor;
-                    break;
-                }
-                case LightSample::Type::DistantLight:
-                {
-                    dirToLight = lightSample.posDir;
-                    distToLight = lightSample.getDistanceToSample(rayOrigin);
-                    Li = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W;
-                    break;
-                }
-            }
+            float3 dirToLight = directLightSample.direction;
+            float distToLight = directLightSample.distance;
+            float3 Li = directLightSample.Le;
 
 			bool valid = true;
-
-			if(reservoir.W == 0.0f)
-			{
-				valid = false;
-			}
 
 			if(valid)
 			{
