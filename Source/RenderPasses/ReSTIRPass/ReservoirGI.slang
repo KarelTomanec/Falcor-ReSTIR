@@ -8,6 +8,9 @@ struct PackedSampleGI
     uint4 surfaceGeometry;
     uint4 sampleGeometry;
     uint Le;
+    uint sourcePdf;
+    uint valid;
+    uint _pad0 = 0;
 }
 
 struct SampleGI
@@ -17,6 +20,8 @@ struct SampleGI
     float3 samplePoint;
     float3 sampleNormal;
     float3 Le;
+    float sourcePdf;
+    uint valid = 0;
 
     static SampleGI unpack(const PackedSampleGI packedSample)
     {
@@ -27,19 +32,23 @@ struct SampleGI
         sample.samplePoint = asfloat(packedSample.sampleGeometry.xyz);
         sample.sampleNormal = decodeNormal2x16(packedSample.sampleGeometry.w);
         sample.Le = decodeLogLuvHDR(packedSample.Le);
+        sample.sourcePdf = asfloat(packedSample.sourcePdf);
+        sample.valid = packedSample.valid;
 
         return sample;
     }
 
     PackedSampleGI pack()
     {
-        PackedSampleGI packedSample;
+        PackedSampleGI packedSample = {};
 
         packedSample.surfaceGeometry.xyz = asuint(this.surfacePoint);
         packedSample.surfaceGeometry.w = encodeNormal2x16(this.surfaceNormal);
         packedSample.sampleGeometry.xyz = asuint(this.samplePoint);
         packedSample.sampleGeometry.w = encodeNormal2x16(this.sampleNormal);
         packedSample.Le = encodeLogLuvHDR(this.Le);
+        packedSample.sourcePdf = asuint(this.sourcePdf);
+        packedSample.valid = this.valid;
 
         return packedSample;
     }
@@ -50,7 +59,8 @@ struct PackedReservoirGI ///< 48 bytes
     PackedSampleGI packedLightSample;
     uint W;
     uint M;
-    uint _pad0;
+    uint _pad0 = 0;
+    uint _pad1 = 0;
 };
 
 struct ReservoirGI

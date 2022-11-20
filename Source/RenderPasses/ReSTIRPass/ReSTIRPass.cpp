@@ -53,6 +53,7 @@ namespace
     const std::string kSpatialReusePassFilename = "RenderPasses/ReSTIRPass/SpatialReuse.cs.slang";
     const std::string kCreateDirectLightSampleFilename = "RenderPasses/ReSTIRPass/CreateDirectLightSamplesPass.cs.slang";
     const std::string kShadePassFilename = "RenderPasses/ReSTIRPass/Shade.cs.slang";
+    const std::string kShadingIndirectPassFilename = "RenderPasses/ReSTIRPass/ShadingIndirect.cs.slang";
 
     const std::string kTracePassFilename = "RenderPasses/ReSTIRPass/TracePass.rt.slang";
     const std::string kSpatioTemporalReuseOnePassFilename = "RenderPasses/ReSTIRPass/SpatioTemporalReuseOne.cs.slang";
@@ -61,7 +62,7 @@ namespace
 
     // Ray tracing settings that affect the traversal stack size.
     // These should be set as small as possible.
-    const uint32_t kMaxPayloadSizeBytes = 72u;
+    const uint32_t kMaxPayloadSizeBytes = 100u;// 72u;
     const uint32_t kMaxRecursionDepth = 1u;
 
     const std::string kInputVBuffer = "vbuffer";
@@ -305,6 +306,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         }
         createDirectSamplesPass(pRenderContext, renderData);
         tracePass(pRenderContext, renderData, *mpTracePass);
+        shadingIndirectPass(pRenderContext, renderData);
         break;
     }
 
@@ -431,9 +433,7 @@ void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& rend
     mpScene->setRaytracingShaderData(pRenderContext, var);
 
     if (mVarsChanged) mpSampleGenerator->setShaderData(var);
-    var["gDirectLightSamples"] = mpDirectLightSamples;
-    var["gOutputColor"] = renderData.getTexture(kOutputColor);
-    var["gOutputAlbedo"] = renderData.getTexture(kOutputAlbedo);
+    var["gInitialGISamples"] = mpInitialGISamples;
     var["gDebug"] = renderData.getTexture(kDebug);
 
     // Full screen dispatch.
@@ -665,6 +665,38 @@ void ReSTIRPass::shadePass(RenderContext* pRenderContext, const RenderData& rend
     mpShadePass->execute(pRenderContext, { mFrameDim, 1u });
 }
 
+void ReSTIRPass::shadingIndirectPass(RenderContext* pRenderContext, const RenderData& renderData)
+{
+    FALCOR_PROFILE("shadingIndirectPass");
+
+    // Bind resources.
+    auto var = mpShadingIndirect->getRootVar()["CB"]["gShadePass"];
+
+    var["gFrameDim"] = mFrameDim;
+    var["gFrameCount"] = mFrameCount;
+
+    var["gVBuffer"] = renderData.getTexture(kInputVBuffer);
+    var["gDirectLightSamples"] = mpDirectLightSamples;
+    var["gIndirectLightSamples"] = mpInitialGISamples;
+
+    var["gOutputColor"] = renderData.getTexture(kOutputColor);
+    var["gOutputAlbedo"] = renderData.getTexture(kOutputAlbedo);
+
+    var["gDebugSameSamples"] = renderData.getTexture(kDebugSameSamples);
+    var["gDebug"] = renderData.getTexture(kDebug);
+
+    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpEnvironmentAliasTable)
+    {
+        mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
+        var["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
+    }
+
+    mpShadingIndirect["gScene"] = mpScene->getParameterBlock();
+
+    mpShadingIndirect->execute(pRenderContext, { mFrameDim, 1u });
+}
+
 ReSTIRPass::TracePass::TracePass(const std::string& name, const std::string& passDefine, const Scene::SharedPtr& pScene, const Program::DefineList& defines, const Program::TypeConformanceList& globalTypeConformances)
     : name(name)
     , passDefine(passDefine)
@@ -772,6 +804,12 @@ void ReSTIRPass::updatePrograms()
         desc.addShaderLibrary(kShadePassFilename).csEntry("main");
         mpShadePass = ComputePass::create(desc, defines, false);
     }
+    if (!mpShadingIndirect)
+    {
+        Program::Desc desc = baseDesc;
+        desc.addShaderLibrary(kShadingIndirectPassFilename).csEntry("main");
+        mpShadingIndirect = ComputePass::create(desc, defines, false);
+    }
     if (!mpSpatioTemporalReuseOnePass)
     {
         Program::Desc desc = baseDesc;
@@ -792,6 +830,7 @@ void ReSTIRPass::updatePrograms()
     prepareProgram(mpSpatialReusePass->getProgram());
     prepareProgram(mpCreateDirectLightSamplesPass->getProgram());
     prepareProgram(mpShadePass->getProgram());
+    prepareProgram(mpShadingIndirect->getProgram());
     prepareProgram(mpSpatioTemporalReuseOnePass->getProgram());
 
     mpCreateLightTiles->setVars(nullptr);
@@ -800,6 +839,7 @@ void ReSTIRPass::updatePrograms()
     mpSpatialReusePass->setVars(nullptr);
     mpCreateDirectLightSamplesPass->setVars(nullptr);
     mpShadePass->setVars(nullptr);
+    mpShadingIndirect->setVars(nullptr);
     mpSpatioTemporalReuseOnePass->setVars(nullptr);
 
     mVarsChanged = true;
@@ -840,6 +880,11 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
     if (!mpDirectLightSamples || mpDirectLightSamples->getElementCount() < pixelCount)
     {
         mpDirectLightSamples = Buffer::createStructured(sizeof(uint4), pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
+    }
+
+    if (!mpInitialGISamples || mpInitialGISamples->getElementCount() < pixelCount)
+    {
+        mpInitialGISamples = Buffer::createStructured(sizeof(uint4) * 3, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
 }

@@ -61,6 +61,7 @@ struct ShadePass
     Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
 
     StructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
+    StructuredBuffer<PackedSampleGI> gIndirectLightSamples;
 
 	RWTexture2D<float4> gOutputColor;
     RWTexture2D<float4> gOutputAlbedo;
@@ -72,6 +73,45 @@ struct ShadePass
 	#define is_valid(name) (is_valid_##name != 0)
 	static const bool kUseEnvBackground = USE_ENV_BACKGROUND;
 	static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
+
+    float3 evalIndirectLight(const uint2 pixel, ShadingData sd, const IBSDF bsdf, inout TinyUniformSampleGenerator sg)
+    {
+        uint bufferIndex = getBufferIndex(pixel, gFrameDim);
+        SampleGI sample = SampleGI::unpack(gIndirectLightSamples[bufferIndex]);
+
+        float3 rayOrigin = sd.computeNewRayOrigin();
+        float3 dirToLight = normalize(sample.samplePoint - rayOrigin);
+        float distToLight = distance(rayOrigin, sample.samplePoint);
+        float3 Li = sample.Le;
+
+        bool valid = sample.valid;
+
+        // if (valid)
+        // {
+        //     // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
+        //     SceneRayQuery<1> rayQuery;
+        //     const Ray ray = Ray(rayOrigin, dirToLight, 0.0f, distToLight - kShadowRayEpsilon);
+        //     if (!rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff))
+        //     {
+        //         valid = false;
+        //     }
+        // }
+
+        float3 diffuse = float3(0.f);
+        float3 specular = float3(0.f);
+
+        // if (valid)
+        // {
+
+        //     sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
+        //     diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
+
+        //     sd.mtl.setActiveLobes((uint)LobeType::SpecularReflection);
+        //     specular = bsdf.eval(sd, dirToLight, sg) * Li;
+        // }
+        return bsdf.eval(sd, dirToLight, sg) * Li;
+        return diffuse + specular;
+    }
 
     float3 evalDirectLight(const uint2 pixel, ShadingData sd, const IBSDF bsdf, inout TinyUniformSampleGenerator sg)
     {
@@ -137,9 +177,9 @@ struct ShadePass
             TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(pixel, gFrameCount);
 
             float3 directLight = evalDirectLight(pixel, sd, bsdf, sg);
-            float3 indirectLight = float3(0.f);
-
-            color += directLight + indirectLight;
+            float3 indirectLight = evalIndirectLight(pixel, sd, bsdf, sg);
+            color += directLight;
+            color += indirectLight;
 		} else {
 			// Background pixel.
 			color = kUseEnvBackground ? gScene.envMap.eval(primaryRayDir) : kDefaultBackgroundColor;

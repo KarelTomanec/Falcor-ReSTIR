@@ -112,6 +112,7 @@ private:
     void spatialReusePass(RenderContext* pRenderContext, const RenderData& renderData);
     void createDirectSamplesPass(RenderContext* pRenderContext, const RenderData& renderData);
     void shadePass(RenderContext* pRenderContext, const RenderData& renderData);
+    void shadingIndirectPass(RenderContext* pRenderContext, const RenderData& renderData);
 
     void spatioTemporalReuseOnePass(RenderContext* pRenderContext, const RenderData& renderData);
 
@@ -174,6 +175,8 @@ private:
     ComputePass::SharedPtr          mpSpatialReusePass;
     ComputePass::SharedPtr          mpCreateDirectLightSamplesPass;
     ComputePass::SharedPtr          mpShadePass;
+    ComputePass::SharedPtr          mpShadingIndirect;
+
     ComputePass::SharedPtr          mpSpatioTemporalReuseOnePass;
 
     std::unique_ptr<TracePass>      mpTracePass;                ///< Main trace pass.
@@ -192,8 +195,11 @@ private:
     Buffer::SharedPtr               mpDirectLightSamples;
 
     Buffer::SharedPtr               mpSurfaceData;
+
     Buffer::SharedPtr               mpPrevSurfaceData;
     Buffer::SharedPtr               mpPrevReservoirs;
+
+    Buffer::SharedPtr               mpInitialGISamples;
 
     // Emissive geometry sampling data
     AliasTable::SharedPtr mpEmissiveGeometryAliasTable;

@@ -63,19 +63,21 @@ import Utils.Geometry.GeometryHelpers;
 import Utils.Sampling.SampleGenerator;
 import Rendering.Lights.LightHelpers;
 
-// import Rendering.Lights.EmissiveLightSampler;
-// import Rendering.Lights.EmissiveLightSamplerHelpers;
-// import Rendering.Lights.EmissivePowerSampler;
+import Rendering.Lights.EmissiveLightSampler;
+import Rendering.Lights.EmissiveLightSamplerHelpers;
+import Rendering.Lights.EmissivePowerSampler;
 // import Rendering.Lights.EnvMapSampler;
 
 import LightSampler;
 import HelperFunctions;
+import ReservoirGI;
+import Utils.Color.ColorHelpers;
 
 
 cbuffer CB
 {
     uint        gFrameCount;        // Frame count since scene was loaded.
-	// EmissiveLightSampler gEmissiveLightSampler;
+	EmissiveLightSampler gEmissiveLightSampler;
     // EnvMapSampler gEnvMapSampler;                    ///< Environment map sampler. Only valid when kUseEnvLight == true.
 }
 
@@ -84,15 +86,14 @@ Texture2D<PackedHitInfo> gVBuffer;
 RWStructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
 
 // Outputs
-RWTexture2D<float4> gOutputColor;
-RWTexture2D<float4> gOutputAlbedo;
+RWStructuredBuffer<PackedSampleGI> gInitialGISamples;
 
 RWTexture2D<float4> gDebug;
 
 // Static configuration based on defines set from the host.
 #define is_valid(name) (is_valid_##name != 0)
 
-static const uint kMaxBounces = 1; // MAX_BOUNCES;
+static const uint kMaxBounces = 2; // MAX_BOUNCES;
 static const bool kComputeDirect = true; // COMPUTE_DIRECT;
 static const bool kUseImportanceSampling = true; // USE_IMPORTANCE_SAMPLING;
 static const bool kUseAnalyticLights = false;    // USE_ANALYTIC_LIGHTS;
@@ -119,6 +120,11 @@ struct ScatterRayData
     uint pathLength;  ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
     float3 origin;    ///< Next path segment origin.
     float3 direction; ///< Next path segment direction.
+
+    float3 sampleNormal;
+    float3 samplePoint;
+
+    float pdf;
 
     SampleGenerator sg; ///< Per-ray state for the sample generator (up to 16B).
 
@@ -230,19 +236,39 @@ void traceScatterRay(inout ScatterRayData rayData)
     \param[in,out] rayData Ray payload.
     \return True if the path continues.
 */
-bool generateScatterRay(const ShadingData sd, const IBSDF bsdf, bool isCurveHit, float3 rayOrigin, inout ScatterRayData rayData)
+bool generateScatterRay(const ShadingData sd, const IBSDF bsdf, float3 rayOrigin, inout ScatterRayData rayData)
 {
     // Sample material.
     BSDFSample bsdfSample;
     if (bsdf.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
     {
         rayData.origin = rayOrigin;
-        if (!isCurveHit && bsdfSample.isLobe(LobeType::Transmission))
+        if (bsdfSample.isLobe(LobeType::Transmission))
         {
             rayData.origin = sd.computeNewRayOrigin(false);
         }
         rayData.direction = bsdfSample.wo;
         rayData.thp *= bsdfSample.weight;
+        return any(rayData.thp > 0.f);
+    }
+
+    return false;
+}
+
+bool generateFirstScatterRay(const ShadingData sd, const IBSDF bsdf, float3 rayOrigin, inout ScatterRayData rayData)
+{
+    // Sample material.
+    BSDFSample bsdfSample;
+    if (bsdf.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
+    {
+        rayData.origin = rayOrigin;
+        if (bsdfSample.isLobe(LobeType::Transmission))
+        {
+            rayData.origin = sd.computeNewRayOrigin(false);
+        }
+        rayData.direction = bsdfSample.wo;
+        rayData.thp *= bsdfSample.weight;
+        rayData.pdf = bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
 
@@ -258,7 +284,6 @@ bool generateScatterRay(const ShadingData sd, const IBSDF bsdf, bool isCurveHit,
 */
 void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 {
-    const bool isCurveHit = hit.getType() == HitType::Curve;
     let lod = ExplicitLodTextureSampler(0.f);
 
     // Load shading data.
@@ -266,6 +291,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 
     // Create BSDF instance.
     let bsdf = gScene.materials.getBSDF(sd, lod);
+
 
     // Add emitted light.
     if (kUseEmissiveLights && (kComputeDirect || rayData.pathLength > 0))
@@ -283,6 +309,11 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     // Compute ray origin for new rays spawned from the hit.
     float3 rayOrigin = sd.computeNewRayOrigin();
 
+    if (rayData.pathLength == 0) {
+        rayData.samplePoint = rayOrigin;
+        rayData.sampleNormal = sd.N;
+    }
+
     // Add contribution of direct light from analytic lights.
     // if (kUseAnalyticLights)
     // {
@@ -292,43 +323,13 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.
-    if (!generateScatterRay(sd, bsdf, isCurveHit, rayOrigin, rayData))
+    if (!generateScatterRay(sd, bsdf, rayOrigin, rayData))
     {
         rayData.terminated = true;
         return;
     }
 
     rayData.pathLength++;
-}
-
-float3 evalDirectReSTIR(const uint2 pixel, const uint2 frameDim, const ShadingData sd, const IBSDF bsdf, inout SampleGenerator sg)
-{
-
-    float3 diffuse = {};
-    float3 specular = {};
-
-    uint bufferIndex = getBufferIndex(pixel, frameDim);
-    DirectLightSample ls = DirectLightSample::unpack(gDirectLightSamples[bufferIndex]);
-
-    // Reject sample if not in the hemisphere of a BSDF lobe.
-    const uint lobes = bsdf.getLobes(sd);
-    const bool hasReflection = lobes & uint(LobeType::Reflection);
-    const bool hasTransmission = lobes & uint(LobeType::Transmission);
-    if (dot(ls.direction, sd.N) <= kMinCosTheta && !hasTransmission) return float3(0.f);
-    if (dot(ls.direction, sd.N) >= -kMinCosTheta && !hasReflection) return float3(0.f);
-
-    float3 rayOrigin = sd.computeNewRayOrigin();
-    float3 Li = ls.Le;
-
-    // Get origin with offset applied in direction of the geometry normal to avoid self-intersection.
-    // const float3 origin = computeRayOrigin(sd.posW, dot(sd.faceN, ls.dir) >= 0.f ? sd.faceN : -sd.faceN);
-
-    // Test visibility by tracing a shadow ray.
-    bool V = traceShadowRay(rayOrigin, ls.direction, ls.distance);
-    if (!V) return float3(0.f);
-
-    // Evaluate contribution.
-    return bsdf.eval(sd, ls.direction, sg) * Li;
 }
 
 /** This is the main entry point for the minimal path tracer.
@@ -344,9 +345,9 @@ float3 evalDirectReSTIR(const uint2 pixel, const uint2 frameDim, const ShadingDa
     \param[in] frameDim Dimension of the frame in pixels.
     \return Returns the estimated color (radiance).
 */
-float3 tracePath(const uint2 pixel, const uint2 frameDim)
+void tracePath(const uint2 pixel, const uint2 frameDim)
 {
-    float3 outColor = float3(0.f);
+    SampleGI sample = {};
 
     const float3 primaryRayOrigin = gScene.camera.getPosition();
     const float3 primaryRayDir = getPrimaryRayDir(pixel, frameDim, gScene.camera);
@@ -356,7 +357,6 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
     {
         // Pixel represents a valid primary hit. Compute its contribution.
 
-        const bool isCurveHit = hit.getType() == HitType::Curve;
         let lod = ExplicitLodTextureSampler(0.f);
 
         // Load shading data.
@@ -372,41 +372,31 @@ float3 tracePath(const uint2 pixel, const uint2 frameDim)
         // Compute ray origin for new rays spawned from the G-buffer.
         float3 rayOrigin = sd.computeNewRayOrigin();
 
-        // Always output directly emitted light, independent of whether emissive materials are treated as light sources or not.
-        outColor += bsdf.getProperties(sd).emission;
-
-        if (kComputeDirect)
-        {
-
-            // Add contribution of direct light from analytic lights.
-            // Light probe and mesh lights are handled by the scatter ray hit/miss shaders.
-            outColor += evalDirectReSTIR(pixel, frameDim, sd, bsdf, sg);
-        }
-
         // Prepare ray payload.
         ScatterRayData rayData = ScatterRayData(sg);
 
         // Generate scatter ray.
-        if (!generateScatterRay(sd, bsdf, isCurveHit, rayOrigin, rayData)) rayData.terminated = true;
+        if (!generateFirstScatterRay(sd, bsdf, rayOrigin, rayData)) rayData.terminated = true;
 
         // Follow path into the scene and compute its total contribution.
-        for (uint depth = 0; depth <= kMaxBounces && !rayData.terminated; depth++)
+        for (uint depth = 0; depth < kMaxBounces && !rayData.terminated; depth++)
         {
             // Trace scatter ray. If it hits geometry, the closest hit shader samples
             // direct illumination and generates the next scatter ray.
             traceScatterRay(rayData);
         }
 
-        // Store contribution from scatter ray.
-        outColor += rayData.radiance;
-    }
-    else
-    {
-        // Background pixel.
-        outColor = kUseEnvBackground ? gScene.envMap.eval(primaryRayDir) : kDefaultBackgroundColor;
+        sample.surfacePoint = rayOrigin;
+        sample.surfaceNormal = sd.N;
+        sample.samplePoint = rayData.samplePoint;
+        sample.sampleNormal = rayData.sampleNormal;
+        sample.Le = rayData.radiance;
+        sample.sourcePdf = rayData.pdf;
+        sample.valid = rayData.pathLength > 0;
     }
 
-    return outColor;
+    uint bufferIndex = getBufferIndex(pixel, frameDim);
+    gInitialGISamples[bufferIndex] = sample.pack();
 }
 
 //
@@ -479,8 +469,6 @@ void rayGen()
     uint2 frameDim = DispatchRaysDimensions().xy;
     if (all(pixel >= frameDim)) return;
 
-    float3 color = tracePath(pixel, frameDim);
-
-    gOutputColor[pixel] = float4(color, 1.f);
+    tracePath(pixel, frameDim);
 
 }
