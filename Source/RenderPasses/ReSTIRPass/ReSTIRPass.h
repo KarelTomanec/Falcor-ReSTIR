@@ -64,7 +64,8 @@ public:
         SpatialResampling,
         TemporalResampling,
         SpatiotemporalResampling,
-        SpatiotemporalResamplingOnePass,
+        SpatiotemporalResamplingDecoupledShading,
+        PathTraceReSTIR,
     };
 
     enum class BiasCorrection

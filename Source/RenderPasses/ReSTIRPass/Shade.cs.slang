@@ -100,7 +100,6 @@ struct ShadePass
             float3 dirToLight = directLightSample.direction;
             float distToLight = directLightSample.distance;
             float3 Li = directLightSample.Le;
-
 			bool valid = true;
 
 			if(valid)

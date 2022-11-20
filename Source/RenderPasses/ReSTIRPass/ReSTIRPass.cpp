@@ -46,7 +46,7 @@ extern "C" FALCOR_API_EXPORT void getPasses(Falcor::RenderPassLibrary& lib)
 
 namespace
 {
-    const std::string kTracePassFilename = "RenderPasses/ReSTIRPass/InitCandidateSamples.rt.slang";
+
     const std::string kCreateLightTilesPassFilename = "RenderPasses/ReSTIRPass/CreateLightTiles.cs.slang";
     const std::string kGenerateInitialCandidatesPassFilename = "RenderPasses/ReSTIRPass/GenerateInitialCandidates.cs.slang";
     const std::string kTemporalReusePassFilename = "RenderPasses/ReSTIRPass/TemporalReuse.cs.slang";
@@ -54,14 +54,14 @@ namespace
     const std::string kCreateDirectLightSampleFilename = "RenderPasses/ReSTIRPass/CreateDirectLightSamplesPass.cs.slang";
     const std::string kShadePassFilename = "RenderPasses/ReSTIRPass/Shade.cs.slang";
 
+    const std::string kTracePassFilename = "RenderPasses/ReSTIRPass/TracePass.rt.slang";
     const std::string kSpatioTemporalReuseOnePassFilename = "RenderPasses/ReSTIRPass/SpatioTemporalReuseOne.cs.slang";
 
     const std::string kShaderModel = "6_5";
 
     // Ray tracing settings that affect the traversal stack size.
     // These should be set as small as possible.
-    //const uint32_t kMaxPayloadSizeBytes = 72u;
-    const uint32_t kMaxPayloadSizeBytes = 4u;
+    const uint32_t kMaxPayloadSizeBytes = 72u;
     const uint32_t kMaxRecursionDepth = 1u;
 
     const std::string kInputVBuffer = "vbuffer";
@@ -101,7 +101,8 @@ namespace
         { (uint32_t)ReSTIRPass::Mode::SpatialResampling, "Spatial resampling only" },
         { (uint32_t)ReSTIRPass::Mode::TemporalResampling, "Temporal resampling only" },
         { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResampling, "Spatiotemporal resampling" },
-        { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResamplingOnePass, "Spatiotemporal resampling in one render pass" },
+        { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResamplingDecoupledShading, "Spatiotemporal resampling and decoupled shading" },
+        { (uint32_t)ReSTIRPass::Mode::PathTraceReSTIR, "Path tracing + ReSTIR DI" },
     };
 
     Gui::DropdownList kBiasCorrectionList =
@@ -255,11 +256,8 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
     prepareResources(pRenderContext, renderData);
 
     // This should be called after all resources have been created.
-    //prepareRenderPass(renderData);
+    prepareRenderPass(renderData);
 
-    // Trace pass.
-    //FALCOR_ASSERT(mpTracePass);
-    //tracePass(pRenderContext, renderData, *mpTracePass);
 
     createLightTiles(pRenderContext);
 
@@ -295,8 +293,18 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
-    case Mode::SpatiotemporalResamplingOnePass:
+    case Mode::SpatiotemporalResamplingDecoupledShading:
         spatioTemporalReuseOnePass(pRenderContext, renderData);
+        break;
+    case Mode::PathTraceReSTIR:
+        generateInitialCandidatesPass(pRenderContext, renderData);
+        temporalReusePass(pRenderContext, renderData);
+        for (size_t iteration = 0; iteration < mReSTIRParams.spatialIterationCount; iteration++)
+        {
+            spatialReusePass(pRenderContext, renderData);
+        }
+        createDirectSamplesPass(pRenderContext, renderData);
+        tracePass(pRenderContext, renderData, *mpTracePass);
         break;
     }
 
@@ -392,22 +400,20 @@ void ReSTIRPass::prepareRenderPass(const RenderData& renderData)
 void ReSTIRPass::setShaderData(const ShaderVar& var, const RenderData& renderData, bool useLightSampling) const
 {
     // Bind static resources that don't change per frame.
-    if (mVarsChanged)
-    {
-        if (useLightSampling && mpEnvMapSampler) mpEnvMapSampler->setShaderData(var["CB"]["gEnvMapSampler"]);
-    }
+    //if (mVarsChanged)
+    //{
+    //    if (useLightSampling && mpEnvMapSampler) mpEnvMapSampler->setShaderData(var["CB"]["gEnvMapSampler"]);
+    //}
 
     var["CB"]["gFrameCount"] = mFrameCount;
-    var["CB"]["gPRNGDimension"] = 0u; // TODO: remove
 
     var["gVBuffer"] = renderData.getTexture(kInputVBuffer);
-    var["gReservoirs"] = mpReservoirs;
 
-    if (useLightSampling && mpEmissiveSampler)
-    {
-        // TODO: Do we have to bind this every frame?
-        mpEmissiveSampler->setShaderData(var["CB"]["gEmissiveLightSampler"]);
-    }
+    //if (useLightSampling && mpEmissiveSampler)
+    //{
+    //    // TODO: Do we have to bind this every frame?
+    //    mpEmissiveSampler->setShaderData(var["CB"]["gEmissiveLightSampler"]);
+    //}
 }
 
 void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& renderData, TracePass& tracePass)
@@ -425,6 +431,10 @@ void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& rend
     mpScene->setRaytracingShaderData(pRenderContext, var);
 
     if (mVarsChanged) mpSampleGenerator->setShaderData(var);
+    var["gDirectLightSamples"] = mpDirectLightSamples;
+    var["gOutputColor"] = renderData.getTexture(kOutputColor);
+    var["gOutputAlbedo"] = renderData.getTexture(kOutputAlbedo);
+    var["gDebug"] = renderData.getTexture(kDebug);
 
     // Full screen dispatch.
     mpScene->raytrace(pRenderContext, tracePass.pProgram.get(), tracePass.pVars, { mFrameDim, 1u });
@@ -659,9 +669,9 @@ ReSTIRPass::TracePass::TracePass(const std::string& name, const std::string& pas
     : name(name)
     , passDefine(passDefine)
 {
-    const uint32_t kShadowMiss = 0;
 
     RtProgram::Desc desc;
+    desc.addShaderModules(pScene->getShaderModules());
     desc.addShaderLibrary(kTracePassFilename);
     desc.setShaderModel(kShaderModel);
     desc.setMaxPayloadSize(kMaxPayloadSizeBytes); // TODO: The required minimum is 140 bytes!
@@ -670,13 +680,28 @@ ReSTIRPass::TracePass::TracePass(const std::string& name, const std::string& pas
     if (!pScene->hasProceduralGeometry()) desc.setPipelineFlags(RtPipelineFlags::SkipProceduralPrimitives);
 
     // Create ray tracing binding table.
-    pBindingTable = RtBindingTable::create(1, 1, pScene->getGeometryCount());
+    pBindingTable = RtBindingTable::create(2, 2, pScene->getGeometryCount());
 
     // Specify entry point for raygen and miss shaders.
     // The raygen shader needs type conformances for *all* materials in the scene.
     // The miss shader doesn't need type conformances as it doesn't access any materials.
     pBindingTable->setRayGen(desc.addRayGen("rayGen", globalTypeConformances));
-    pBindingTable->setMiss(kShadowMiss, desc.addMiss("shadowMiss"));
+    pBindingTable->setMiss(0, desc.addMiss("scatterMiss"));
+    pBindingTable->setMiss(1, desc.addMiss("shadowMiss"));
+
+    auto materialTypes = pScene->getMaterialSystem()->getMaterialTypes();
+
+    for (const auto materialType : materialTypes)
+    {
+        auto typeConformances = pScene->getMaterialSystem()->getTypeConformances(materialType);
+
+        // Add hit groups for triangles.
+        if (auto geometryIDs = pScene->getGeometryIDs(Scene::GeometryType::TriangleMesh, materialType); !geometryIDs.empty())
+        {
+            pBindingTable->setHitGroup(0, geometryIDs, desc.addHitGroup("scatterTriangleMeshClosestHit", "scatterTriangleMeshAnyHit", "", typeConformances, to_string(materialType)));
+            pBindingTable->setHitGroup(1, geometryIDs, desc.addHitGroup("", "shadowTriangleMeshAnyHit", "", typeConformances, to_string(materialType)));
+        }
+    }
 
     pProgram = RtProgram::create(desc, defines);
 
@@ -700,11 +725,12 @@ void ReSTIRPass::updatePrograms()
     auto globalTypeConformances = mpScene->getMaterialSystem()->getTypeConformances();
 
     // Create trace passes lazily.
-    //if (!mpTracePass) mpTracePass = std::make_unique<TracePass>("tracePass", "", mpScene, defines, globalTypeConformances);
+    if (!mpTracePass) mpTracePass = std::make_unique<TracePass>("tracePass", "", mpScene, defines, globalTypeConformances);
 
     // Create program vars for trace programs.
     // We only need to set defines for program specialization here. Type conformances have already been setup on construction.
-    //mpTracePass->prepareProgram(defines);
+    mpTracePass->prepareProgram(defines);
+
     Program::Desc baseDesc;
     baseDesc.addShaderModules(mpScene->getShaderModules());
     baseDesc.addTypeConformances(globalTypeConformances);
@@ -752,7 +778,6 @@ void ReSTIRPass::updatePrograms()
         desc.addShaderLibrary(kSpatioTemporalReuseOnePassFilename).csEntry("main");
         mpSpatioTemporalReuseOnePass = ComputePass::create(desc, defines, false);
     }
-
 
     // Perform program specialization.
     // Note that we must use set instead of add functions to replace any stale state.
