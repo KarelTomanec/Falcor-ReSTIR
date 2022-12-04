@@ -10,6 +10,7 @@ struct CreateLightTilesPass
     static const uint kLightTileSize = LIGHT_TILE_SIZE;   ///< Number of light samples in the tile.
     static const uint kLightTileEmissiveSampleCount = LIGHT_TILE_EMISSIVE_SAMPLE_COUNT; ///< Number of emissive geometry light samples in the tile.
     static const uint kLightTileEnvironmentSampleCount = LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT; ///< Number of environment light samples in the tile.
+    static const uint kLightTileAnalyticSampleCount = LIGHT_TILE_ANALYTIC_SAMPLE_COUNT; ///< Number of analytic light samples in the tile.
 
     LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
 
@@ -43,6 +44,11 @@ struct CreateLightTilesPass
         {
             // The second part of the light tile consists of environment map samples.
             lightSample = gLightSampler.sampleEnvironment(sg);
+        }
+        else if (inTileSampleIndex < kLightTileEmissiveSampleCount + kLightTileEnvironmentSampleCount + kLightTileAnalyticSampleCount)
+        {
+            // The third part of the light tile consists of analytic samples.
+            lightSample = gLightSampler.sampleAnalytic(sg);
         }
 
         // Pack and save selected sample.

@@ -87,6 +87,7 @@ struct CreateDirectLightSamplesPass
 
         switch (lightSample.lightType)
         {
+            case LightSample::Type::PointLight:
             case LightSample::Type::AreaLight:
             {
                 float3 originToLight = lightSample.posDir - rayOrigin;

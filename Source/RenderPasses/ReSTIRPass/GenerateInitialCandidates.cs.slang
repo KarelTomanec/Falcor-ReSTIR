@@ -67,6 +67,7 @@ struct GenerateInitialCandidatesPass
 
     static const uint kLightTileEmissiveSampleCount = LIGHT_TILE_EMISSIVE_SAMPLE_COUNT;
     static const uint kLightTileEnvironmentSampleCount = LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT;
+    static const uint kLightTileAnalyticSampleCount = LIGHT_TILE_ANALYTIC_SAMPLE_COUNT;
 
 	static const bool kUseAnalyticLights = USE_ANALYTIC_LIGHTS;
 	static const bool kUseEmissiveLights = USE_EMISSIVE_LIGHTS;
@@ -77,6 +78,7 @@ struct GenerateInitialCandidatesPass
 
 	static const uint kEmissiveLightCandidateCount = EMISSIVE_LIGHT_CANDIDATE_COUNT;
 	static const uint kEnvironmentLightCandidateCount = ENV_LIGHT_CANDIDATE_COUNT;
+	static const uint kAnalyticLightCandidateCount = ANALYTIC_LIGHT_CANDIDATE_COUNT;
 
     uint2 gFrameDim;  ///< Frame dimensions.
     uint gFrameCount; ///< Frame count since scene was loaded.
@@ -193,6 +195,38 @@ struct GenerateInitialCandidatesPass
                 environmentLightReservoir.W = environmentLightReservoir.W > 0.f ? (environmentLightReservoir.weightSum / environmentLightReservoir.M) / environmentLightReservoir.W : 0.f;
                 outputReservoir.update(environmentLightReservoir, environmentLocalTargetPDF, sg);
             }
+
+            // Sample analytic lights:
+            if (kAnalyticLightCandidateCount > 0)
+            {
+                uint lightTileOffset = tileIndex * kLightTileSize + kLightTileEmissiveSampleCount + kLightTileEnvironmentSampleCount;
+                uint step = (kLightTileAnalyticSampleCount + kAnalyticLightCandidateCount - 1) / kAnalyticLightCandidateCount;
+                uint inTileOffset = min(uint(sampleNext1D(sg) * step), step - 1);
+                Reservoir analyticLightReservoir;
+                [unroll]
+                for (uint i = 0; i < kAnalyticLightCandidateCount; i++)
+                {
+                    uint lightSampleIndex = lightTileOffset + (inTileOffset + i * step) % kLightTileAnalyticSampleCount;
+                    const LightSample lightSample = LightSample::unpack(gLightTiles[lightSampleIndex]);
+
+                    const float3 direction = lightSample.posDir;
+                    if (dot(surfaceData.normal, direction) < kMinCosTheta) {
+                        analyticLightReservoir.M += 1;
+                        continue;
+                    }
+
+                    float sourcePDF = lightSample.pdf;
+                    float targetPDF = surfaceData.evalTargetPDF(lightSample, viewVec);
+
+                    analyticLightReservoir.update(lightSample.minLightSample, targetPDF, sourcePDF, sg);
+                }
+                float analyticLocalTargetPDF = analyticLightReservoir.W;
+                analyticLightReservoir.W = analyticLightReservoir.W > 0.f ? (analyticLightReservoir.weightSum / analyticLightReservoir.M) / analyticLightReservoir.W : 0.f;
+                outputReservoir.update(analyticLightReservoir, analyticLocalTargetPDF, sg);
+            }
+
+
+
 
 
 #if TEST_INITIAL_SAMPLE_VISIBILITY

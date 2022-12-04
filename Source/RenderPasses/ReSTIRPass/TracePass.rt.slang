@@ -79,6 +79,8 @@ cbuffer CB
     uint        gFrameCount;        // Frame count since scene was loaded.
 	EmissiveLightSampler gEmissiveLightSampler;
     // EnvMapSampler gEnvMapSampler;                    ///< Environment map sampler. Only valid when kUseEnvLight == true.
+
+    LightSampler gLightSampler;
 }
 
 // Inputs
@@ -93,7 +95,7 @@ RWTexture2D<float4> gDebug;
 // Static configuration based on defines set from the host.
 #define is_valid(name) (is_valid_##name != 0)
 
-static const uint kMaxBounces = 2; // MAX_BOUNCES;
+static const uint kMaxBounces = 1; // MAX_BOUNCES;
 static const bool kComputeDirect = true; // COMPUTE_DIRECT;
 static const bool kUseImportanceSampling = true; // USE_IMPORTANCE_SAMPLING;
 static const bool kUseAnalyticLights = false;    // USE_ANALYTIC_LIGHTS;
@@ -294,7 +296,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 
 
     // Add emitted light.
-    if (kUseEmissiveLights && (kComputeDirect || rayData.pathLength > 0))
+    if (kUseEmissiveLights && (/*kComputeDirect || */rayData.pathLength > 0))
     {
         rayData.radiance += rayData.thp * bsdf.getProperties(sd).emission;
     }
@@ -320,6 +322,18 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     //     float3 Lr = evalDirectAnalytic(sd, bsdf, rayData.sg);
     //     rayData.radiance += rayData.thp * Lr;
     // }
+
+    // Sample emissive environment
+    // TODO: sample any
+
+    LightSample ls = gLightSampler.sampleEmissiveGeometry(rayData.sg);
+
+    // Evaluate contribution.
+    float3 Lr = float3(0.f);
+    // Test visibility by tracing a shadow ray. FIXME
+    // bool V = traceShadowRay(rayOrigin, ls.getDirToSample(rayOrigin), ls.getDistanceToSample(rayOrigin));
+    Lr = bsdf.eval(sd, ls.getDirToSample(rayOrigin), rayData.sg) * ls.Le / ls.pdf;
+    rayData.radiance += rayData.thp * Lr;
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.
@@ -379,7 +393,7 @@ void tracePath(const uint2 pixel, const uint2 frameDim)
         if (!generateFirstScatterRay(sd, bsdf, rayOrigin, rayData)) rayData.terminated = true;
 
         // Follow path into the scene and compute its total contribution.
-        for (uint depth = 0; depth < kMaxBounces && !rayData.terminated; depth++)
+        for (uint depth = 0; depth <= kMaxBounces && !rayData.terminated; depth++)
         {
             // Trace scatter ray. If it hits geometry, the closest hit shader samples
             // direct illumination and generates the next scatter ray.
@@ -392,7 +406,7 @@ void tracePath(const uint2 pixel, const uint2 frameDim)
         sample.sampleNormal = rayData.sampleNormal;
         sample.Le = rayData.radiance;
         sample.sourcePdf = rayData.pdf;
-        sample.valid = rayData.pathLength > 0;
+        sample.valid = rayData.pathLength > 0 ? 1 : 0;
     }
 
     uint bufferIndex = getBufferIndex(pixel, frameDim);

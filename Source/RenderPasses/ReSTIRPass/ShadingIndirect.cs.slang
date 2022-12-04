@@ -80,37 +80,24 @@ struct ShadePass
         SampleGI sample = SampleGI::unpack(gIndirectLightSamples[bufferIndex]);
 
         float3 rayOrigin = sd.computeNewRayOrigin();
-        float3 dirToLight = normalize(sample.samplePoint - rayOrigin);
-        float distToLight = distance(rayOrigin, sample.samplePoint);
+        float3 dirToLight = normalize(sample.samplePoint - sample.surfacePoint);
+        float distToLight = distance(sample.surfacePoint, sample.samplePoint);
         float3 Li = sample.Le;
 
-        bool valid = sample.valid;
+        bool valid = bool(sample.valid);
 
-        // if (valid)
-        // {
-        //     // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
-        //     SceneRayQuery<1> rayQuery;
-        //     const Ray ray = Ray(rayOrigin, dirToLight, 0.0f, distToLight - kShadowRayEpsilon);
-        //     if (!rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff))
-        //     {
-        //         valid = false;
-        //     }
-        // }
+        if (valid)
+        {
+            // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
+            SceneRayQuery<1> rayQuery;
+            const Ray ray = Ray(rayOrigin, dirToLight, 0.0f, distToLight - kShadowRayEpsilon);
+            if (!rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff))
+            {
+                valid = false;
+            }
+        }
 
-        float3 diffuse = float3(0.f);
-        float3 specular = float3(0.f);
-
-        // if (valid)
-        // {
-
-        //     sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
-        //     diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
-
-        //     sd.mtl.setActiveLobes((uint)LobeType::SpecularReflection);
-        //     specular = bsdf.eval(sd, dirToLight, sg) * Li;
-        // }
-        return bsdf.eval(sd, dirToLight, sg) * Li;
-        return diffuse + specular;
+        return Li;
     }
 
     float3 evalDirectLight(const uint2 pixel, ShadingData sd, const IBSDF bsdf, inout TinyUniformSampleGenerator sg)

@@ -96,8 +96,10 @@ private:
 
     bool prepareLighting(RenderContext* pRenderContext);
     void resetLighting();
+
     AliasTable::SharedPtr createEmissiveGeometryAliasTable(RenderContext* pRenderContext, const LightCollection::SharedPtr& lightCollection);
     AliasTable::SharedPtr createEnvironmentAliasTable(RenderContext* pRenderContext, const Texture::SharedPtr& envTexture);
+    AliasTable::SharedPtr createAnalyticLightsAliasTable(RenderContext* pRenderContext);
 
     bool beginFrame(RenderContext* pRenderContext, const RenderData& renderData);
     void endFrame(RenderContext* pRenderContext, const RenderData& renderData);
@@ -138,8 +140,9 @@ private:
         uint32_t    lightTileCount = 128;
 
         bool        testInitialSampleVisibility = true;
-        uint32_t    emissiveLightCandidateCount = 32; // = 24
-        uint32_t    envLightCandidateCount = 0; // = 8
+        uint32_t    emissiveLightCandidateCount = 24; // = 24
+        uint32_t    envLightCandidateCount = 8; // = 8
+        uint32_t    analyticLightCandidateCount = 0;
 
         BiasCorrection biasCorrection = BiasCorrection::Off;
         float       normalThreshold = 0.5f;
@@ -204,7 +207,10 @@ private:
     // Emissive geometry sampling data
     AliasTable::SharedPtr mpEmissiveGeometryAliasTable;
     AliasTable::SharedPtr mpEnvironmentAliasTable;
+    AliasTable::SharedPtr mpAnalyticLightsAliasTable;
+
     Buffer::SharedPtr mpEnvironmentLuminanceTable;
+
     Buffer::SharedPtr mpLightTiles;
 
     std::mt19937 mRnd;

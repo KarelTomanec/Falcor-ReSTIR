@@ -64,7 +64,7 @@ struct MinimalLightSample
     {
         EmissiveGeometry = (0 << kLightTypeOffset),
         Environment = (1 << kLightTypeOffset),
-        // TODO: Analytic = (2 << kLightTypeOffset),
+        Analytic = (2 << kLightTypeOffset),
     };
 
     uint typeIndex;
@@ -92,6 +92,14 @@ struct MinimalLightSample
     {
         MinimalLightSample lightSample = {};
         lightSample.typeIndex = uint(Type::Environment) | uint(index & kIndexMask);
+        lightSample.position = position.x + position.y > 1.f ? 1.f - position : position;
+        return lightSample;
+    }
+
+    static MinimalLightSample createAnalytic(const uint index, const float2 position)
+    {
+        MinimalLightSample lightSample = {};
+        lightSample.typeIndex = uint(Type::Analytic) | uint(index & kIndexMask);
         lightSample.position = position.x + position.y > 1.f ? 1.f - position : position;
         return lightSample;
     }
@@ -157,7 +165,7 @@ struct LightSample
     {
         AreaLight,
         DistantLight,
-        // TODO: Point,
+        PointLight,
     };
 
     MinimalLightSample minLightSample;
@@ -192,6 +200,16 @@ struct LightSample
             break;
         case MinimalLightSample::Type::Environment:
             lightSample.lightType = LightSample::Type::DistantLight;
+        case MinimalLightSample::Type::Analytic:
+            switch (gScene.getLight(lightSample.minLightSample.getIndex()).type)
+            {
+            case LightSample::Type::PointLight:
+                lightSample.lightType = LightSample::Type::PointLight;
+                break;
+            case LightSample::Type::DistantLight:
+                lightSample.lightType = LightSample::Type::DistantLight;
+                break;
+            }
             break;
         }
         lightSample.posDir = asfloat(packedLightSample.posDir);
@@ -205,6 +223,7 @@ struct LightSample
     float getDistanceToSample(const float3 position) {
         switch (lightType)
         {
+        case LightSample::Type::PointLight:
         case LightSample::Type::AreaLight:
             return distance(position, posDir);
         case LightSample::Type::DistantLight:
@@ -216,6 +235,7 @@ struct LightSample
     float3 getDirToSample(const float3 position) {
         switch (lightType)
         {
+        case LightSample::Type::PointLight:
         case LightSample::Type::AreaLight:
             return normalize(posDir - position);
         case LightSample::Type::DistantLight:
@@ -230,12 +250,15 @@ struct LightSampler
 
     static const float emissiveGeometrySampleWeight = float(LIGHT_TILE_EMISSIVE_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
     static const float environmentSampleWeight = float(LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
+    static const float analyticLightSampleWeight = float(LIGHT_TILE_ANALYTIC_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
 
 
     AliasTable emissiveGeometryAliasTable;
 
     Buffer<float> environmentLuminanceTable;
     AliasTable environmentAliasTable;
+
+    AliasTable analyticLightsAliasTable;
 
     LightSample sampleEmissiveGeometry<S : ISampleGenerator>(inout S sg)
     {
@@ -255,6 +278,15 @@ struct LightSampler
         return getEnvironmentLightSample(minLightSample);
     }
 
+    LightSample sampleAnalytic<S : ISampleGenerator>(inout S sg)
+    {
+        float binRandom = sampleNext1D(sg);
+        float thresholdRandom = sampleNext1D(sg);
+        float2 positionRandom = sampleNext2D(sg);
+        MinimalLightSample minLightSample = MinimalLightSample::createAnalytic(analyticLightsAliasTable.sample(float2(binRandom, thresholdRandom)), positionRandom);
+        return getAnalyticLightSample(minLightSample);
+    }
+
     LightSample getLightSample(const MinimalLightSample minLightSample)
     {
 
@@ -264,6 +296,8 @@ struct LightSampler
             return getEmissiveLightSample(minLightSample);
         case MinimalLightSample::Type::Environment:
             return getEnvironmentLightSample(minLightSample);
+        case MinimalLightSample::Type::Analytic:
+            return getAnalyticLightSample(minLightSample);
         }
         LightSample lightSample;
         return lightSample;
@@ -304,6 +338,36 @@ struct LightSampler
         return lightSample;
     }
 
+    LightSample getAnalyticLightSample(const MinimalLightSample minLightSample)
+    {
+        LightSample lightSample;
+
+        lightSample.minLightSample = minLightSample;
+
+        const uint index = minLightSample.getIndex();
+        const LightData analyticLight = gScene.getLight(index);
+        switch (analyticLight.type)
+        {
+            case LightType::Point:
+            {
+                lightSample.lightType = LightSample::Type::PointLight;
+                lightSample.posDir = analyticLight.posW;
+                break;
+            }
+            case LightType::Directional:
+            {
+                lightSample.lightType = LightSample::Type::DistantLight;
+                lightSample.posDir = -analyticLight.dirW;
+                break;
+            }
+        }
+
+        lightSample.Le = luminance(analyticLight.intensity);
+        lightSample.pdf = analyticLightSampleWeight * lightSample.Le / analyticLightsAliasTable.weightSum;
+
+        return lightSample;
+    }
+
     float3 getLightSampleRadiance(const MinimalLightSample minLightSample)
     {
         switch (minLightSample.getType())
@@ -313,6 +377,8 @@ struct LightSampler
         case MinimalLightSample::Type::Environment:
             float3 dir = minLightSample.getEnvironmentDir();
             return gScene.envMap.eval(dir);
+        case MinimalLightSample::Type::Analytic:
+            return gScene.getLight(minLightSample.getIndex()).intensity;
         }
         return float3(0.f);
     }

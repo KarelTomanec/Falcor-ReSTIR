@@ -114,6 +114,7 @@ struct SpatialReusePass
 
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
             if (!neighborSurfaceData.isValid()) continue;
+            // neighborReservoir.M = min(neighborReservoir.M, 100);
 
             if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
 

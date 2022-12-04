@@ -354,6 +354,9 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
         dirty |= group.var("Environment light samples", mReSTIRParams.envLightCandidateCount, kMinLightCandidateCount, kMaxLightCandidateCount);
         group.tooltip("Number of initial environment light candidate samples.");
 
+        dirty |= group.var("Analytic light samples", mReSTIRParams.analyticLightCandidateCount, kMinLightCandidateCount, kMaxLightCandidateCount);
+        group.tooltip("Number of initial analytic light candidate samples.");
+
         dirty |= group.checkbox("Test initial candidate visibility", mReSTIRParams.testInitialSampleVisibility);
         group.tooltip("");
     }
@@ -436,6 +439,14 @@ void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& rend
     var["gInitialGISamples"] = mpInitialGISamples;
     var["gDebug"] = renderData.getTexture(kDebug);
 
+    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["CB"]["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["CB"]["gLightSampler"]["analyticLightsAliasTable"]);
+    if (mpEnvironmentAliasTable)
+    {
+        mpEnvironmentAliasTable->setShaderData(var["CB"]["gLightSampler"]["environmentAliasTable"]);
+        var["CB"]["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
+    }
+
     // Full screen dispatch.
     mpScene->raytrace(pRenderContext, tracePass.pProgram.get(), tracePass.pVars, { mFrameDim, 1u });
 }
@@ -450,6 +461,7 @@ void ReSTIRPass::createLightTiles(RenderContext* pRenderContext)
     var["gFrameCount"] = mFrameCount;
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -496,6 +508,7 @@ void ReSTIRPass::generateInitialCandidatesPass(RenderContext* pRenderContext, co
     }
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -526,6 +539,7 @@ void ReSTIRPass::temporalReusePass(RenderContext* pRenderContext, const RenderDa
     var["gDebug"] = renderData.getTexture(kDebug);
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -556,6 +570,7 @@ void ReSTIRPass::spatialReusePass(RenderContext* pRenderContext, const RenderDat
     var["gDebug"] = renderData.getTexture(kDebug);
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -595,6 +610,7 @@ void ReSTIRPass::spatioTemporalReuseOnePass(RenderContext* pRenderContext, const
     var["gDebug"] = renderData.getTexture(kDebug);
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -623,6 +639,7 @@ void ReSTIRPass::createDirectSamplesPass(RenderContext* pRenderContext, const Re
     var["gDebug"] = renderData.getTexture(kDebug);
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -653,12 +670,6 @@ void ReSTIRPass::shadePass(RenderContext* pRenderContext, const RenderData& rend
     var["gDebugSameSamples"] = renderData.getTexture(kDebugSameSamples);
     var["gDebug"] = renderData.getTexture(kDebug);
 
-    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
-    if (mpEnvironmentAliasTable)
-    {
-        mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
-        var["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
-    }
 
     mpShadePass["gScene"] = mpScene->getParameterBlock();
 
@@ -958,6 +969,29 @@ bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)
         }
     }
 
+    if (mpScene->useAnalyticLights())
+    {
+
+        if (!mpAnalyticLightsAliasTable)
+        {
+            if (mpScene->getActiveLightCount() > 0)
+            {
+                mpAnalyticLightsAliasTable = createAnalyticLightsAliasTable(pRenderContext);
+                lightingChanged = true;
+                mRecompile = true;
+            }
+        }
+    }
+    else
+    {
+        if (mpAnalyticLightsAliasTable)
+        {
+            mpAnalyticLightsAliasTable = nullptr;
+            lightingChanged = true;
+            mRecompile = true;
+        }
+    }
+
     //if (mpEmissiveSampler)
     //{
     //    lightingChanged |= mpEmissiveSampler->update(pRenderContext);
@@ -1037,6 +1071,19 @@ AliasTable::SharedPtr ReSTIRPass::createEnvironmentAliasTable(RenderContext* pRe
             size_t index = y * width + x;
             weights[index] = diffSolidAngle * envMapLuminances[index];
         }
+    }
+
+    return AliasTable::create(std::move(weights), mRnd);
+}
+
+
+AliasTable::SharedPtr ReSTIRPass::createAnalyticLightsAliasTable(RenderContext* pRenderContext)
+{
+    const auto& activeAnalyticLights = mpScene->getActiveLights();
+    std::vector<float> weights(activeAnalyticLights.size());
+    for (size_t i = 0; i < weights.size(); i++)
+    {
+        weights[i] = luminance(activeAnalyticLights[i]->getIntensity());
     }
 
     return AliasTable::create(std::move(weights), mRnd);
@@ -1188,6 +1235,7 @@ Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner
 
     defines.add("EMISSIVE_LIGHT_CANDIDATE_COUNT", std::to_string(owner.mReSTIRParams.emissiveLightCandidateCount));
     defines.add("ENV_LIGHT_CANDIDATE_COUNT", std::to_string(owner.mReSTIRParams.envLightCandidateCount));
+    defines.add("ANALYTIC_LIGHT_CANDIDATE_COUNT", std::to_string(owner.mReSTIRParams.analyticLightCandidateCount));
     defines.add("TEST_INITIAL_SAMPLE_VISIBILITY", std::to_string(owner.mReSTIRParams.testInitialSampleVisibility)); // FIXME
 
     defines.add("DEPTH_THRESHOLD", std::to_string(owner.mReSTIRParams.depthThreshold));
@@ -1207,10 +1255,13 @@ Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner
     defines.add("LIGHT_TILE_COUNT", std::to_string(owner.mReSTIRParams.lightTileCount));
     defines.add("LIGHT_TILE_SCREEN_SIZE", std::to_string(owner.mReSTIRParams.lightTileScreenSize));
 
-    uint32_t totalCandidateCount = owner.mReSTIRParams.emissiveLightCandidateCount + owner.mReSTIRParams.envLightCandidateCount;
+    uint32_t totalCandidateCount = owner.mReSTIRParams.emissiveLightCandidateCount + owner.mReSTIRParams.envLightCandidateCount + owner.mReSTIRParams.analyticLightCandidateCount;
     float portionOfEmissiveCandidates = float(owner.mReSTIRParams.emissiveLightCandidateCount) / float(totalCandidateCount);
+    float portionOfEnvironmentCandidates = float(owner.mReSTIRParams.envLightCandidateCount) / float(totalCandidateCount);
     defines.add("LIGHT_TILE_EMISSIVE_SAMPLE_COUNT", std::to_string(uint32_t(owner.mReSTIRParams.lightTileSize * portionOfEmissiveCandidates)));
-    defines.add("LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT", std::to_string(owner.mReSTIRParams.lightTileSize - uint32_t(owner.mReSTIRParams.lightTileSize * portionOfEmissiveCandidates)));
+    defines.add("LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT", std::to_string(uint32_t(owner.mReSTIRParams.lightTileSize * portionOfEnvironmentCandidates)));
+    uint32_t lightTileAnalyticSampleCount = owner.mReSTIRParams.lightTileSize - uint32_t(owner.mReSTIRParams.lightTileSize * portionOfEmissiveCandidates) - uint32_t(owner.mReSTIRParams.lightTileSize * portionOfEnvironmentCandidates);
+    defines.add("LIGHT_TILE_ANALYTIC_SAMPLE_COUNT", std::to_string(lightTileAnalyticSampleCount));
     
 
     return defines;

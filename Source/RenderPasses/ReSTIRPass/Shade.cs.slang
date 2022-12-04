@@ -55,7 +55,6 @@ struct ShadePass
     uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
-    LightSampler gLightSampler;
 
     // Resources:
     Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
