@@ -82,6 +82,18 @@ struct CreateDirectLightSamplesPass
 
         LightSample lightSample = gLightSampler.getLightSample(reservoir.sample);
 
+        // VISUALIZE LIGHT INDEX
+        // uint index = reservoir.sample.getIndex();
+        // uint aliasTableSize = gLightSampler.emissiveGeometryAliasTable.count;
+        // index = (index + 200) % aliasTableSize;
+        // uint N = 3;
+        // float index255 = 255.f * float(index) / float(aliasTableSize);
+        // uint r = float(uint(index255) % N) / float(N - 1);
+        // uint g = float(uint(index255 / float(N)) % N) / float(N - 1);
+        // uint b = float(uint(index255 / float(N * N)) % N) / float(N - 1);
+        // float gamma = 1.f / 2.2f;
+        // gDebug[pixel] = float4(pow(float(r), gamma), pow(float(g), gamma), pow(float(b), gamma), 1);
+
         float3 rayOrigin = surfaceData.position;
         DirectLightSample outputSample = {};
 
