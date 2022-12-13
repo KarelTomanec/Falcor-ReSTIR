@@ -419,7 +419,6 @@ struct SpatiotemporaReuseOnePass
         }
         gOutputColor[pixel] = float4(color, 1);
         gOutputAlbedo[pixel] = float4(albedo, 1);
-        // gDebugSameSamples[pixel] = float4(asfloat(outputReservoir.sample.typeIndex), 0, 0, 1);
 	}
 }
 

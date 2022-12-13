@@ -1,7 +1,5 @@
-import Scene.Scene;
 import LightSampler;
 import Utils.Sampling.TinyUniformSampleGenerator;
-import HelperFunctions;
 
 struct CreateLightTilesPass
 {
@@ -50,7 +48,6 @@ struct CreateLightTilesPass
             // The third part of the light tile consists of analytic samples.
             lightSample = gLightSampler.sampleAnalytic(sg);
         }
-
         // Pack and save selected sample.
         gLightTiles[bufferIndex] = lightSample.pack();
 	}

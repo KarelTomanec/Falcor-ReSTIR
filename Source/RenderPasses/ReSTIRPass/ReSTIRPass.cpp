@@ -330,6 +330,9 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
+    bool temporalResampling = (mReSTIRParams.mode == Mode::TemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResamplingDecoupledShading);
+    bool spatialResampling = (mReSTIRParams.mode == Mode::SpatialResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResamplingDecoupledShading);
+
 
     dirty |= widget.dropdown("Mode", kModeList, reinterpret_cast<uint32_t&>(mReSTIRParams.mode));
 
@@ -361,34 +364,43 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
         group.tooltip("");
     }
 
-    if (auto group = widget.group("Temporal resampling", false))
+    if (temporalResampling)
     {
-        dirty |= group.var("Max history length", mReSTIRParams.temporalHistoryLength, kMinTemporalHistoryLength, kMaxTemporalHistoryLength);
-        group.tooltip("Maximum history length for temporal reuse [frames].");
+        if (auto group = widget.group("Temporal resampling", false))
+        {
+            dirty |= group.var("Max history length", mReSTIRParams.temporalHistoryLength, kMinTemporalHistoryLength, kMaxTemporalHistoryLength);
+            group.tooltip("Maximum history length for temporal reuse [frames].");
+        }
     }
 
-    if (auto group = widget.group("Spatial resampling", false))
+    if (spatialResampling)
     {
-        dirty |= group.var("Iterations", mReSTIRParams.spatialIterationCount, kMinSpatialIterationCount, kMaxSpatialIterationCount);
-        group.tooltip("Number of spatial reuse iterations.");
+        if (auto group = widget.group("Spatial resampling", false))
+        {
+            dirty |= group.var("Iterations", mReSTIRParams.spatialIterationCount, kMinSpatialIterationCount, kMaxSpatialIterationCount);
+            group.tooltip("Number of spatial reuse iterations.");
 
-        dirty |= group.var("Sample count", mReSTIRParams.spatialReuseSampleCount, kMinSpatialReuseSampleCount, kMaxSpatialReuseSampleCount);
-        group.tooltip("Number of neighbor samples considered for resampling.");
+            dirty |= group.var("Sample count", mReSTIRParams.spatialReuseSampleCount, kMinSpatialReuseSampleCount, kMaxSpatialReuseSampleCount);
+            group.tooltip("Number of neighbor samples considered for resampling.");
 
-        dirty |= group.var("Sample radius", mReSTIRParams.spatialReuseSampleRadius, kMinSpatialReuseSampleRadius, kMaxSpatialReuseSampleRadius);
-        group.tooltip("Screen-space radius for sample resampling [pixels].");
+            dirty |= group.var("Sample radius", mReSTIRParams.spatialReuseSampleRadius, kMinSpatialReuseSampleRadius, kMaxSpatialReuseSampleRadius);
+            group.tooltip("Screen-space radius for sample resampling [pixels].");
+        }
     }
 
-    if (auto group = widget.group("Resampling options", false))
+    if (spatialResampling || temporalResampling)
     {
-        dirty |= group.dropdown("Bias correction", kBiasCorrectionList, reinterpret_cast<uint32_t&>(mReSTIRParams.biasCorrection));
-        group.tooltip("");
+        if (auto group = widget.group("Resampling options", false))
+        {
+            dirty |= group.dropdown("Bias correction", kBiasCorrectionList, reinterpret_cast<uint32_t&>(mReSTIRParams.biasCorrection));
+            group.tooltip("");
 
-        dirty |= group.var("Depth threshold", mReSTIRParams.depthThreshold, 0.f, 1.f);
-        group.tooltip("Depth threshold for sample reuse.");
+            dirty |= group.var("Depth threshold", mReSTIRParams.depthThreshold, 0.f, 1.f);
+            group.tooltip("Depth threshold for sample reuse.");
 
-        dirty |= group.var("Normal threshold", mReSTIRParams.normalThreshold, 0.f, 1.f);
-        group.tooltip("Normal threshold for sample reuse.");
+            dirty |= group.var("Normal threshold", mReSTIRParams.normalThreshold, 0.f, 1.f);
+            group.tooltip("Normal threshold for sample reuse.");
+        }
     }
 
     if (dirty) mRecompile = true;
