@@ -65,7 +65,6 @@ struct ShadePass
     RWTexture2D<float4> gOutputAlbedo;
 
     RWTexture2D<float4> gDebug;
-    RWTexture2D<float4> gDebugSameSamples;
 
 	// Static configuration based on defines set from the host.
 	#define is_valid(name) (is_valid_##name != 0)

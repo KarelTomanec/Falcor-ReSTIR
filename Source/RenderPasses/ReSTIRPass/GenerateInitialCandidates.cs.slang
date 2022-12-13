@@ -95,7 +95,6 @@ struct GenerateInitialCandidatesPass
     RWStructuredBuffer<PackedSurfaceData> gSurfaceData;
 
     // Debug:
-    RWTexture2D<float4> gDebugSameSamples;
 	RWTexture2D<float4> gDebug;
 
 	void execute(const uint2 pixel)
@@ -251,7 +250,6 @@ struct GenerateInitialCandidatesPass
             gSurfaceData[getBufferIndex(pixel, gFrameDim)] = invalidSurfaceData.pack();
         }
         gReservoirs[getBufferIndex(pixel, gFrameDim)] = outputReservoir.pack();
-        gDebugSameSamples[pixel] = float4(asfloat(outputReservoir.sample.typeIndex), 0, 0, 1);
 	}
 }
 

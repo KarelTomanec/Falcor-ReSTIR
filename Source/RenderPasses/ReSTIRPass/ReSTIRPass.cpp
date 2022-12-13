@@ -77,7 +77,6 @@ namespace
     const std::string kOutputColor = "color";
     const std::string kOutputAlbedo = "albedo";
     const std::string kDebug = "debug";
-    const std::string kDebugSameSamples = "debugSameSamples";
 
     const ChannelList kOutputChannels =
     {
@@ -85,7 +84,6 @@ namespace
         { kOutputAlbedo, "",     "Output albedo", true /* optional */, ResourceFormat::RGBA32Float },
 
         { kDebug, "", "", true /* optional */, ResourceFormat::RGBA32Float },
-        { kDebugSameSamples, "", "", true /* optional */, ResourceFormat::RGBA32Float },
     };
 
     const char kMaxBounces[] = "maxBounces";
@@ -509,7 +507,6 @@ void ReSTIRPass::generateInitialCandidatesPass(RenderContext* pRenderContext, co
     var["gLightTiles"] = mpLightTiles;
 
 
-    var["gDebugSameSamples"] = renderData.getTexture(kDebugSameSamples);
     var["gDebug"] = renderData.getTexture(kDebug);
 
 
@@ -679,7 +676,6 @@ void ReSTIRPass::shadePass(RenderContext* pRenderContext, const RenderData& rend
     var["gOutputColor"] = renderData.getTexture(kOutputColor);
     var["gOutputAlbedo"] = renderData.getTexture(kOutputAlbedo);
 
-    var["gDebugSameSamples"] = renderData.getTexture(kDebugSameSamples);
     var["gDebug"] = renderData.getTexture(kDebug);
 
 
@@ -705,7 +701,6 @@ void ReSTIRPass::shadingIndirectPass(RenderContext* pRenderContext, const Render
     var["gOutputColor"] = renderData.getTexture(kOutputColor);
     var["gOutputAlbedo"] = renderData.getTexture(kOutputAlbedo);
 
-    var["gDebugSameSamples"] = renderData.getTexture(kDebugSameSamples);
     var["gDebug"] = renderData.getTexture(kDebug);
 
     if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);

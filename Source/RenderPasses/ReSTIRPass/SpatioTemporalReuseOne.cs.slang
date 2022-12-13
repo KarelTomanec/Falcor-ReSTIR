@@ -103,7 +103,6 @@ struct SpatiotemporaReuseOnePass
     Texture2D<float2> gMotionVectors; ///< 2D screen space motion vector.
 
     // Debug:
-    RWTexture2D<float4> gDebugSameSamples;
 	RWTexture2D<float4> gDebug;
 
 	void execute(const uint2 pixel)

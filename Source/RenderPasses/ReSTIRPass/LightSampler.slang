@@ -331,6 +331,7 @@ struct LightSampler
         lightSample.lightType = LightSample::Type::DistantLight;
 
         lightSample.posDir = minLightSample.getEnvironmentDir();
+        lightSample.normal = -lightSample.posDir;
         const uint texelIndex = minLightSample.getIndex();
         lightSample.Le = environmentLuminanceTable[texelIndex];
         lightSample.pdf = environmentSampleWeight * lightSample.Le / environmentAliasTable.weightSum;
@@ -361,7 +362,7 @@ struct LightSampler
                 break;
             }
         }
-
+        lightSample.normal = -lightSample.posDir;
         lightSample.Le = luminance(analyticLight.intensity);
         lightSample.pdf = analyticLightSampleWeight * lightSample.Le / analyticLightsAliasTable.weightSum;
 
