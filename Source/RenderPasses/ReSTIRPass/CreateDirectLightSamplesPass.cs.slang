@@ -97,6 +97,8 @@ struct CreateDirectLightSamplesPass
         float3 rayOrigin = surfaceData.position;
         DirectLightSample outputSample = {};
 
+
+
         switch (lightSample.lightType)
         {
             case LightSample::Type::PointLight:

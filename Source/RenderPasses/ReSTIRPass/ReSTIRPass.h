@@ -140,8 +140,8 @@ private:
         uint32_t    lightTileCount = 128;
 
         bool        testInitialSampleVisibility = true;
-        uint32_t    emissiveLightCandidateCount = 24; // = 24
-        uint32_t    envLightCandidateCount = 8; // = 8
+        uint32_t    emissiveLightCandidateCount = 32; // = 24
+        uint32_t    envLightCandidateCount = 0; // = 8
         uint32_t    analyticLightCandidateCount = 0;
 
         BiasCorrection biasCorrection = BiasCorrection::Off;

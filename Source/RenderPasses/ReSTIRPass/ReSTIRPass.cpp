@@ -283,6 +283,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatiotemporalResampling:
+
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
         for (size_t iteration = 0; iteration < mReSTIRParams.spatialIterationCount; iteration++)
@@ -488,6 +489,8 @@ void ReSTIRPass::generateInitialCandidatesPass(RenderContext* pRenderContext, co
 
     FALCOR_PROFILE("generateInitialCandidates");
 
+   
+
     // Bind resources.
     auto var = mpGenerateInitialCandidatesPass->getRootVar()["CB"]["gGenerateInitialCandidatesPass"];
 
@@ -525,7 +528,6 @@ void ReSTIRPass::generateInitialCandidatesPass(RenderContext* pRenderContext, co
     }
 
     mpGenerateInitialCandidatesPass["gScene"] = mpScene->getParameterBlock();
-
     mpGenerateInitialCandidatesPass->execute(pRenderContext, { mFrameDim, 1u });
 }
 

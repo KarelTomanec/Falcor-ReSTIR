@@ -7,6 +7,8 @@ import Utils.Color.ColorHelpers;
 import Rendering.Materials.IBSDF;
 import Scene.Material.ShadingUtils;
 
+import Utils.Math.BitTricks;
+
 static const float kShadowRayEpsilon = 0.00000001f;
 
 static const float normalThreshold = NORMAL_THRESHOLD;

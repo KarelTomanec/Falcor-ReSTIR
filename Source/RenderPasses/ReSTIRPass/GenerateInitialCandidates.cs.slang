@@ -122,7 +122,7 @@ struct GenerateInitialCandidatesPass
             SurfaceData surfaceData = SurfaceData::create(sd, bsdf, primaryRayOrigin);
             gSurfaceData[getBufferIndex(pixel, gFrameDim)] = surfaceData.pack();
 
-			// Compute ray origin for new rays spawned from the G-buffer.
+			// Compute ray origin for new rays spawned from the V-buffer.
 			float3 rayOrigin =  sd.computeNewRayOrigin();
 
             // Determine screen tile position.
@@ -195,6 +195,7 @@ struct GenerateInitialCandidatesPass
                 outputReservoir.update(environmentLightReservoir, environmentLocalTargetPDF, sg);
             }
 
+
             // Sample analytic lights:
             if (kAnalyticLightCandidateCount > 0)
             {
@@ -208,7 +209,9 @@ struct GenerateInitialCandidatesPass
                     uint lightSampleIndex = lightTileOffset + (inTileOffset + i * step) % kLightTileAnalyticSampleCount;
                     const LightSample lightSample = LightSample::unpack(gLightTiles[lightSampleIndex]);
 
-                    const float3 direction = lightSample.posDir;
+
+
+                    const float3 direction = lightSample.getDirToSample(rayOrigin);
                     if (dot(surfaceData.normal, direction) < kMinCosTheta) {
                         analyticLightReservoir.M += 1;
                         continue;
@@ -219,13 +222,12 @@ struct GenerateInitialCandidatesPass
 
                     analyticLightReservoir.update(lightSample.minLightSample, targetPDF, sourcePDF, sg);
                 }
+
+
                 float analyticLocalTargetPDF = analyticLightReservoir.W;
                 analyticLightReservoir.W = analyticLightReservoir.W > 0.f ? (analyticLightReservoir.weightSum / analyticLightReservoir.M) / analyticLightReservoir.W : 0.f;
                 outputReservoir.update(analyticLightReservoir, analyticLocalTargetPDF, sg);
             }
-
-
-
 
 
 #if TEST_INITIAL_SAMPLE_VISIBILITY

@@ -106,6 +106,7 @@ struct SurfaceData
     {
         switch (sample.lightType)
         {
+        case LightSample::Type::PointLight:
         case LightSample::Type::AreaLight:
             {
                 const float3 pointToLightVec = sample.posDir - position;

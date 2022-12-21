@@ -168,12 +168,12 @@ struct LightSample
         PointLight,
     };
 
-    MinimalLightSample minLightSample;
-    Type lightType;
-    float3 posDir;
-    float3 normal;
-    float pdf;
-    float Le;
+    MinimalLightSample minLightSample;  ///< Minimal light sample - type, index, position.
+    Type lightType;                     ///< Type of light (Area, Distant, Point).
+    float3 posDir;                      ///< Position or direction (depends on type).
+    float3 normal;                      ///< Normal vector at the sample point.
+    float pdf;                          ///< Source PDF of the light sample.
+    float Le;                           ///< Emission.
 
     PackedLightSample pack()
     {
@@ -203,10 +203,10 @@ struct LightSample
         case MinimalLightSample::Type::Analytic:
             switch (gScene.getLight(lightSample.minLightSample.getIndex()).type)
             {
-            case LightSample::Type::PointLight:
+            case LightType::Point:
                 lightSample.lightType = LightSample::Type::PointLight;
                 break;
-            case LightSample::Type::DistantLight:
+            case LightType::Distant:
                 lightSample.lightType = LightSample::Type::DistantLight;
                 break;
             }
