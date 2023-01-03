@@ -67,6 +67,7 @@ struct SpatiotemporaReuseOnePass
 
     static const uint kLightTileEmissiveSampleCount = LIGHT_TILE_EMISSIVE_SAMPLE_COUNT;
     static const uint kLightTileEnvironmentSampleCount = LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT;
+    static const uint kLightTileAnalyticSampleCount = LIGHT_TILE_ANALYTIC_SAMPLE_COUNT;
 
 	static const bool kUseAnalyticLights = USE_ANALYTIC_LIGHTS;
 	static const bool kUseEmissiveLights = USE_EMISSIVE_LIGHTS;
@@ -74,9 +75,9 @@ struct SpatiotemporaReuseOnePass
 	static const bool kUseEnvBackground = USE_ENV_BACKGROUND;
 	static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 
-
-	static const uint kEmissiveLightCandidateCount = EMISSIVE_LIGHT_CANDIDATE_COUNT;
+    static const uint kEmissiveLightCandidateCount = EMISSIVE_LIGHT_CANDIDATE_COUNT;
     static const uint kEnvironmentLightCandidateCount = ENV_LIGHT_CANDIDATE_COUNT;
+    static const uint kAnalyticLightCandidateCount = ANALYTIC_LIGHT_CANDIDATE_COUNT;
 
     static const float kMaxOffset = 5.f;
     static const uint kAttemptCount = 5;
@@ -207,6 +208,36 @@ struct SpatiotemporaReuseOnePass
                 currentReservoir.update(environmentLightReservoir, environmentLocalTargetPDF, sg);
             }
 
+            // Sample analytic lights:
+            if (kAnalyticLightCandidateCount > 0)
+            {
+                uint lightTileOffset = tileIndex * kLightTileSize + kLightTileEmissiveSampleCount + kLightTileEnvironmentSampleCount;
+                uint step = (kLightTileAnalyticSampleCount + kAnalyticLightCandidateCount - 1) / kAnalyticLightCandidateCount;
+                uint inTileOffset = min(uint(sampleNext1D(sg) * step), step - 1);
+                Reservoir analyticLightReservoir;
+                [unroll]
+                for (uint i = 0; i < kAnalyticLightCandidateCount; i++)
+                {
+                    uint lightSampleIndex = lightTileOffset + (inTileOffset + i * step) % kLightTileAnalyticSampleCount;
+                    const LightSample lightSample = LightSample::unpack(gLightTiles[lightSampleIndex]);
+
+                    const float3 direction = lightSample.getDirToSample(rayOrigin);
+                    if (dot(surfaceData.normal, direction) < kMinCosTheta) {
+                        analyticLightReservoir.M += 1;
+                        continue;
+                    }
+
+                    float sourcePDF = lightSample.pdf;
+                    float targetPDF = surfaceData.evalTargetPDF(lightSample, viewVec);
+
+                    analyticLightReservoir.update(lightSample.minLightSample, targetPDF, sourcePDF, sg);
+                }
+
+                float analyticLocalTargetPDF = analyticLightReservoir.W;
+                analyticLightReservoir.W = analyticLightReservoir.W > 0.f ? (analyticLightReservoir.weightSum / analyticLightReservoir.M) / analyticLightReservoir.W : 0.f;
+                currentReservoir.update(analyticLightReservoir, analyticLocalTargetPDF, sg);
+            }
+
             {
                 // Test visibility by tracing a shadow ray.
                 // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
@@ -330,17 +361,17 @@ struct SpatiotemporaReuseOnePass
 
             Reservoir outputReservoir;
             {
-                if (temporalNeighborFound) {
-                    LightSample neighborLightSample = gLightSampler.getLightSample(prevReservoir.sample);
-                    float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-                    outputReservoir.update(prevReservoir, neighborReservoirTargetPDF, sg);
-                }
+                // if (temporalNeighborFound) {
+                //     LightSample neighborLightSample = gLightSampler.getLightSample(prevReservoir.sample);
+                //     float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
+                //     outputReservoir.update(prevReservoir, neighborReservoirTargetPDF, sg);
+                // }
 
-                if (spatioTemporalNeighborFound) {
-                    LightSample neighborLightSample = gLightSampler.getLightSample(spatioTemporalReservoir.sample);
-                    float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-                    outputReservoir.update(spatioTemporalReservoir, neighborReservoirTargetPDF, sg);
-                }
+                // if (spatioTemporalNeighborFound) {
+                //     LightSample neighborLightSample = gLightSampler.getLightSample(spatioTemporalReservoir.sample);
+                //     float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
+                //     outputReservoir.update(spatioTemporalReservoir, neighborReservoirTargetPDF, sg);
+                // }
 
                 LightSample currentLightSample = gLightSampler.getLightSample(currentReservoir.sample);
                 float currentReservoirTargetPDF = surfaceData.evalTargetPDF(currentLightSample, viewVec);
@@ -352,7 +383,7 @@ struct SpatiotemporaReuseOnePass
 
             // SHADING -------------------------------------------------------------------------------------------
 
-            uint N = 3;
+            uint N = 1;
             let bsdfProperties = bsdf.getProperties(sd);
             float3 emission = bsdfProperties.emission;
             albedo = bsdfProperties.diffuseReflectionAlbedo + bsdfProperties.specularReflectionAlbedo;
@@ -367,6 +398,7 @@ struct SpatiotemporaReuseOnePass
                 float3 Li;
                 switch (lightSample.lightType)
                 {
+                    case LightSample::Type::PointLight:
                     case LightSample::Type::AreaLight:
                     {
                         float3 originToLight = lightSample.posDir - rayOrigin;

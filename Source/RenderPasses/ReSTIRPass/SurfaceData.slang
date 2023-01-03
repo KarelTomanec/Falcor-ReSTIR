@@ -43,7 +43,7 @@ struct SurfaceData
     static SurfaceData create(const ShadingData sd, const IBSDF bsdf, const float3 cameraPosition)
     {
         SurfaceData surfaceData;
-        surfaceData.position = sd.computeNewRayOrigin();
+        surfaceData.position = sd.posW;
         surfaceData.normal = sd.N;
         BSDFProperties bsdfProp = bsdf.getProperties(sd);
         surfaceData.diffuseWeight = luminance(bsdfProp.diffuseReflectionAlbedo);
@@ -131,7 +131,7 @@ struct SurfaceData
         float3 dirToSample = lightSample.getDirToSample(this.position);
         float distToSample = lightSample.getDistanceToSample(this.position);
         SceneRayQuery<1> rayQuery;
-        const Ray ray = Ray(position, dirToSample, 0.1f, distToSample - kShadowRayEpsilon);
+        const Ray ray = Ray(position, dirToSample, 0.0f, distToSample - kShadowRayEpsilon);
 		return rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
 	}
 

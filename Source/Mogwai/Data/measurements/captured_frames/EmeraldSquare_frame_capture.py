@@ -1,8 +1,8 @@
 # Load render graph
-m.script('..\\..\\..\\..\\Source\\Mogwai\\Data\\ReSTIR_10exp.py')
+m.script('..\\..\\..\\..\\Source\\Mogwai\\Data\\ReSTIR_7exp.py')
 
 # Load scene
-m.loadScene('..\\..\\..\\..\\media\\TestScenes\\EmeraldSquare_v4_1\\EmeraldSquare_v4_1\\EmeraldSquare_Day.pyscene', buildFlags=SceneBuilderFlags.Default)
+m.loadScene('..\\..\\..\\..\\media\\TestScenes\\EmeraldSquare_v4_1\\EmeraldSquare_v4_1\\EmeraldSquare_Dusk.pyscene', buildFlags=SceneBuilderFlags.Default)
 
 # Disable animations
 m.scene.animated = False

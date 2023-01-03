@@ -13,10 +13,10 @@ struct PackedReservoir ///< 16 bytes
 
 struct Reservoir
 {
-    MinimalLightSample sample; ///< The output sample.
-	float weightSum; ///< The sum of weights.
-	float W; ///< The weight of the reservoir.
-	float M; ///< The number of samples seen so far.
+    MinimalLightSample sample;      ///< The output sample.
+	float weightSum;                ///< The sum of weights.
+	float W;                        ///< The weight of the reservoir.
+	float M;                        ///< The number of samples seen so far.
 
 	__init()
     {

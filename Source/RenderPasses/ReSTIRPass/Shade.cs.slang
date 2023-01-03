@@ -99,7 +99,6 @@ struct ShadePass
 
         if (valid)
         {
-
             sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
             diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
 

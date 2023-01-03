@@ -85,7 +85,7 @@ struct CreateDirectLightSamplesPass
         // VISUALIZE LIGHT INDEX
         // uint index = reservoir.sample.getIndex();
         // uint aliasTableSize = gLightSampler.emissiveGeometryAliasTable.count;
-        // index = (index + 200) % aliasTableSize;
+        // index = (index + 10444) % aliasTableSize;
         // uint N = 3;
         // float index255 = 255.f * float(index) / float(aliasTableSize);
         // uint r = float(uint(index255) % N) / float(N - 1);
@@ -102,6 +102,16 @@ struct CreateDirectLightSamplesPass
         switch (lightSample.lightType)
         {
             case LightSample::Type::PointLight:
+            {
+
+                float3 originToLight = lightSample.posDir - rayOrigin;
+                outputSample.direction = normalize(originToLight);
+                float distSqr = max(FLT_MIN, dot(originToLight, originToLight));
+                float geometryFactor = 1.f / distSqr;
+                outputSample.distance = sqrt(distSqr);
+                outputSample.Le = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W * geometryFactor;
+                break;
+            }
             case LightSample::Type::AreaLight:
             {
                 float3 originToLight = lightSample.posDir - rayOrigin;

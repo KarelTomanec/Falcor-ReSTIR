@@ -209,8 +209,6 @@ struct GenerateInitialCandidatesPass
                     uint lightSampleIndex = lightTileOffset + (inTileOffset + i * step) % kLightTileAnalyticSampleCount;
                     const LightSample lightSample = LightSample::unpack(gLightTiles[lightSampleIndex]);
 
-
-
                     const float3 direction = lightSample.getDirToSample(rayOrigin);
                     if (dot(surfaceData.normal, direction) < kMinCosTheta) {
                         analyticLightReservoir.M += 1;

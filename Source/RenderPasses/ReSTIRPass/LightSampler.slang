@@ -200,14 +200,15 @@ struct LightSample
             break;
         case MinimalLightSample::Type::Environment:
             lightSample.lightType = LightSample::Type::DistantLight;
+            break;
         case MinimalLightSample::Type::Analytic:
             switch (gScene.getLight(lightSample.minLightSample.getIndex()).type)
             {
-            case LightType::Point:
-                lightSample.lightType = LightSample::Type::PointLight;
-                break;
             case LightType::Distant:
                 lightSample.lightType = LightSample::Type::DistantLight;
+                break;
+            case LightType::Point:
+                lightSample.lightType = LightSample::Type::PointLight;
                 break;
             }
             break;
