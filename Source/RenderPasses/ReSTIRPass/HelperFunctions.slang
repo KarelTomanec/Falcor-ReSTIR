@@ -9,7 +9,7 @@ import Scene.Material.ShadingUtils;
 
 import Utils.Math.BitTricks;
 
-static const float kShadowRayEpsilon = 0.00000001f;
+static const float kShadowRayEpsilon = 0.0001f;
 
 static const float normalThreshold = NORMAL_THRESHOLD;
 static const float depthThreshold = DEPTH_THRESHOLD;

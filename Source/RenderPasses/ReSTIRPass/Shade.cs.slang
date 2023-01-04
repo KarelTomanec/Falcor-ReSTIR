@@ -79,6 +79,7 @@ struct ShadePass
         float3 rayOrigin = sd.computeNewRayOrigin();
         float3 dirToLight = directLightSample.direction;
         float distToLight = directLightSample.distance;
+        dirToLight = dirToLight;
         float3 Li = directLightSample.Le;
 
         bool valid = true;

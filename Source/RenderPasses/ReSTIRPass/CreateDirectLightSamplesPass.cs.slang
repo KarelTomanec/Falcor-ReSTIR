@@ -94,10 +94,9 @@ struct CreateDirectLightSamplesPass
         // float gamma = 1.f / 2.2f;
         // gDebug[pixel] = float4(pow(float(r), gamma), pow(float(g), gamma), pow(float(b), gamma), 1);
 
-        float3 rayOrigin = surfaceData.position;
         DirectLightSample outputSample = {};
 
-
+        float3 rayOrigin = computeRayOrigin(surfaceData.position, surfaceData.normal);
 
         switch (lightSample.lightType)
         {
@@ -105,27 +104,27 @@ struct CreateDirectLightSamplesPass
             {
 
                 float3 originToLight = lightSample.posDir - rayOrigin;
-                outputSample.direction = normalize(originToLight);
                 float distSqr = max(FLT_MIN, dot(originToLight, originToLight));
-                float geometryFactor = 1.f / distSqr;
                 outputSample.distance = sqrt(distSqr);
+                outputSample.direction = originToLight / outputSample.distance;
+                float geometryFactor = 1.f / distSqr;
                 outputSample.Le = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W * geometryFactor;
                 break;
             }
             case LightSample::Type::AreaLight:
             {
                 float3 originToLight = lightSample.posDir - rayOrigin;
-                outputSample.direction = normalize(originToLight);
                 float distSqr = max(FLT_MIN, dot(originToLight, originToLight));
-                float geometryFactor = max(0.f, dot(lightSample.normal, -outputSample.direction)) / distSqr;
                 outputSample.distance = sqrt(distSqr);
+                outputSample.direction = originToLight / outputSample.distance;
+                float geometryFactor = max(0.f, dot(lightSample.normal, -outputSample.direction)) / distSqr;
                 outputSample.Le = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W * geometryFactor;
                 break;
             }
             case LightSample::Type::DistantLight:
             {
                 outputSample.direction = lightSample.posDir;
-                outputSample.distance = lightSample.getDistanceToSample(rayOrigin);
+                outputSample.distance = lightSample.getDistanceToSample(surfaceData.position);
                 outputSample.Le = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W;
                 break;
             }

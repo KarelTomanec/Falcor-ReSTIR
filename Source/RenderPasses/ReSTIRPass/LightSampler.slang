@@ -11,10 +11,9 @@ import Utils.Math.PackedFormats;
 
 struct PackedDirectLightSample ///< 16 bytes
 {
-    uint direction;
+    uint2 direction;
     uint Le;
     uint distance;
-    uint _pad0;
 }
 
 struct DirectLightSample
@@ -27,10 +26,10 @@ struct DirectLightSample
     {
         PackedDirectLightSample packedDirectLightSample;
 
-        packedDirectLightSample.direction = encodeNormal2x16(this.direction);
+        packedDirectLightSample.direction = encodeNormal3x16(this.direction);
         packedDirectLightSample.Le = encodeLogLuvHDR(this.Le);
         packedDirectLightSample.distance = asuint(this.distance);
-        packedDirectLightSample._pad0 = 0u;
+        // packedDirectLightSample._pad0 = 0u;
 
         return packedDirectLightSample;
     }
@@ -39,7 +38,7 @@ struct DirectLightSample
     {
         DirectLightSample directLightSample;
 
-        directLightSample.direction = decodeNormal2x16(packedDirectLightSample.direction);
+        directLightSample.direction = decodeNormal3x16(packedDirectLightSample.direction);
         directLightSample.Le = decodeLogLuvHDR(packedDirectLightSample.Le);
         directLightSample.distance = asfloat(packedDirectLightSample.distance);
 
