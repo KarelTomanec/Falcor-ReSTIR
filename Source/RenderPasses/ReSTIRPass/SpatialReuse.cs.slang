@@ -94,7 +94,7 @@ struct SpatialReusePass
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
         float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
 #if UNBIASED_RAYTRACED
-        currReservoirTargetPDF *= surfaceData.evalVisibility(currLightSample);
+        // currReservoirTargetPDF *= surfaceData.evalVisibility(currLightSample);
 #endif
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 

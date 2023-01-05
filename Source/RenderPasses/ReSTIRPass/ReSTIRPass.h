@@ -64,7 +64,7 @@ public:
         SpatialResampling,
         TemporalResampling,
         SpatiotemporalResampling,
-        SpatiotemporalResamplingDecoupledShading,
+        DecoupledPipeline,
         PathTraceReSTIR,
     };
 
@@ -116,7 +116,7 @@ private:
     void shadePass(RenderContext* pRenderContext, const RenderData& renderData);
     void shadingIndirectPass(RenderContext* pRenderContext, const RenderData& renderData);
 
-    void spatioTemporalReuseOnePass(RenderContext* pRenderContext, const RenderData& renderData);
+    void decoupledPipelinePass(RenderContext* pRenderContext, const RenderData& renderData);
 
     void prepareRenderPass(const RenderData& renderData);
     void setShaderData(const ShaderVar& var, const RenderData& renderData, bool useLightSampling = true) const;
@@ -180,7 +180,7 @@ private:
     ComputePass::SharedPtr          mpShadePass;
     ComputePass::SharedPtr          mpShadingIndirect;
 
-    ComputePass::SharedPtr          mpSpatioTemporalReuseOnePass;
+    ComputePass::SharedPtr          mpDecoupledPipelinePass;
 
     std::unique_ptr<TracePass>      mpTracePass;                ///< Main trace pass.
 

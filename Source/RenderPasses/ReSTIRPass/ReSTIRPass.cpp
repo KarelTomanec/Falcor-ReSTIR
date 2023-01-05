@@ -56,7 +56,7 @@ namespace
     const std::string kShadingIndirectPassFilename = "RenderPasses/ReSTIRPass/ShadingIndirect.cs.slang";
 
     const std::string kTracePassFilename = "RenderPasses/ReSTIRPass/TracePass.rt.slang";
-    const std::string kSpatioTemporalReuseOnePassFilename = "RenderPasses/ReSTIRPass/SpatioTemporalReuseOne.cs.slang";
+    const std::string kDecoupledPipelinePassFilename = "RenderPasses/ReSTIRPass/DecoupledPipeline.cs.slang";
 
     const std::string kShaderModel = "6_5";
 
@@ -100,7 +100,7 @@ namespace
         { (uint32_t)ReSTIRPass::Mode::SpatialResampling, "Spatial resampling only" },
         { (uint32_t)ReSTIRPass::Mode::TemporalResampling, "Temporal resampling only" },
         { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResampling, "Spatiotemporal resampling" },
-        { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResamplingDecoupledShading, "Spatiotemporal resampling and decoupled shading" },
+        { (uint32_t)ReSTIRPass::Mode::DecoupledPipeline, "Decoupled pipeline" },
         { (uint32_t)ReSTIRPass::Mode::PathTraceReSTIR, "Path tracing + ReSTIR DI" },
     };
 
@@ -293,8 +293,8 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
-    case Mode::SpatiotemporalResamplingDecoupledShading:
-        spatioTemporalReuseOnePass(pRenderContext, renderData);
+    case Mode::DecoupledPipeline:
+        decoupledPipelinePass(pRenderContext, renderData);
         break;
     case Mode::PathTraceReSTIR:
         generateInitialCandidatesPass(pRenderContext, renderData);
@@ -329,8 +329,8 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
-    bool temporalResampling = (mReSTIRParams.mode == Mode::TemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResamplingDecoupledShading);
-    bool spatialResampling = (mReSTIRParams.mode == Mode::SpatialResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResamplingDecoupledShading);
+    bool temporalResampling = (mReSTIRParams.mode == Mode::TemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline);
+    bool spatialResampling = (mReSTIRParams.mode == Mode::SpatialResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline);
 
 
     dirty |= widget.dropdown("Mode", kModeList, reinterpret_cast<uint32_t&>(mReSTIRParams.mode));
@@ -594,12 +594,12 @@ void ReSTIRPass::spatialReusePass(RenderContext* pRenderContext, const RenderDat
 
 }
 
-void ReSTIRPass::spatioTemporalReuseOnePass(RenderContext* pRenderContext, const RenderData& renderData)
+void ReSTIRPass::decoupledPipelinePass(RenderContext* pRenderContext, const RenderData& renderData)
 {
-    FALCOR_PROFILE("spatioTemporalReuseOnePass");
+    FALCOR_PROFILE("decoupledPipelinePass");
 
     // Bind resources.
-    auto var = mpSpatioTemporalReuseOnePass->getRootVar()["CB"]["gSpatioTemporalReuseOnePass"];
+    auto var = mpDecoupledPipelinePass->getRootVar()["CB"]["gDecoupledPipelinePass"];
 
     var["gFrameDim"] = mFrameDim;
     var["gFrameCount"] = mFrameCount;
@@ -628,9 +628,9 @@ void ReSTIRPass::spatioTemporalReuseOnePass(RenderContext* pRenderContext, const
         var["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
     }
 
-    mpSpatioTemporalReuseOnePass["gScene"] = mpScene->getParameterBlock();
+    mpDecoupledPipelinePass["gScene"] = mpScene->getParameterBlock();
 
-    mpSpatioTemporalReuseOnePass->execute(pRenderContext, { mFrameDim, 1u });
+    mpDecoupledPipelinePass->execute(pRenderContext, { mFrameDim, 1u });
 }
 
 void ReSTIRPass::createDirectSamplesPass(RenderContext* pRenderContext, const RenderData& renderData)
@@ -830,11 +830,11 @@ void ReSTIRPass::updatePrograms()
         desc.addShaderLibrary(kShadingIndirectPassFilename).csEntry("main");
         mpShadingIndirect = ComputePass::create(desc, defines, false);
     }
-    if (!mpSpatioTemporalReuseOnePass)
+    if (!mpDecoupledPipelinePass)
     {
         Program::Desc desc = baseDesc;
-        desc.addShaderLibrary(kSpatioTemporalReuseOnePassFilename).csEntry("main");
-        mpSpatioTemporalReuseOnePass = ComputePass::create(desc, defines, false);
+        desc.addShaderLibrary(kDecoupledPipelinePassFilename).csEntry("main");
+        mpDecoupledPipelinePass = ComputePass::create(desc, defines, false);
     }
 
     // Perform program specialization.
@@ -851,7 +851,7 @@ void ReSTIRPass::updatePrograms()
     prepareProgram(mpCreateDirectLightSamplesPass->getProgram());
     prepareProgram(mpShadePass->getProgram());
     prepareProgram(mpShadingIndirect->getProgram());
-    prepareProgram(mpSpatioTemporalReuseOnePass->getProgram());
+    prepareProgram(mpDecoupledPipelinePass->getProgram());
 
     mpCreateLightTiles->setVars(nullptr);
     mpGenerateInitialCandidatesPass->setVars(nullptr);
@@ -860,7 +860,7 @@ void ReSTIRPass::updatePrograms()
     mpCreateDirectLightSamplesPass->setVars(nullptr);
     mpShadePass->setVars(nullptr);
     mpShadingIndirect->setVars(nullptr);
-    mpSpatioTemporalReuseOnePass->setVars(nullptr);
+    mpDecoupledPipelinePass->setVars(nullptr);
 
     mVarsChanged = true;
     mRecompile = false;

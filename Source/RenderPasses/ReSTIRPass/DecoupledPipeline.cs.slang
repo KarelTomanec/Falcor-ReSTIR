@@ -58,7 +58,7 @@ import SurfaceData;
 import HelperFunctions;
 import LightSampler;
 
-struct SpatiotemporaReuseOnePass
+struct DecoupledPipelinePass
 {
 
     static const uint kLightTileCount = LIGHT_TILE_COUNT;
@@ -256,7 +256,7 @@ struct SpatiotemporaReuseOnePass
 
 
             // Set history limit for the temporal reuse.
-            uint historyLimit = TEMPORAL_MAX_HISTORY_LENGTH * currentReservoir.M;
+            uint historyLimit = TEMPORAL_MAX_HISTORY_LENGTH * currentReservoir.M / 8;
             // Reproject the pixel position.
             uint2 reprojPos = uint2(float2(pixel) + gMotionVectors[pixel] * gFrameDim + sampleNext2D(sg));
 
@@ -344,6 +344,8 @@ struct SpatiotemporaReuseOnePass
 
             spatioTemporalReservoir.W = spatioTemporalReservoir.W > 0.f ? (spatioTemporalReservoir.weightSum / spatioTemporalReservoir.M) / spatioTemporalReservoir.W : 0.f;
             spatioTemporalReservoir.M = min(historyLimit, spatioTemporalReservoir.M);
+
+
             if (spatioTemporalNeighborFound) {
                 // Test visibility by tracing a shadow ray.
                 // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
@@ -361,17 +363,17 @@ struct SpatiotemporaReuseOnePass
 
             Reservoir outputReservoir;
             {
-                // if (temporalNeighborFound) {
-                //     LightSample neighborLightSample = gLightSampler.getLightSample(prevReservoir.sample);
-                //     float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-                //     outputReservoir.update(prevReservoir, neighborReservoirTargetPDF, sg);
-                // }
+                if (temporalNeighborFound) {
+                    LightSample neighborLightSample = gLightSampler.getLightSample(prevReservoir.sample);
+                    float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
+                    outputReservoir.update(prevReservoir, neighborReservoirTargetPDF, sg);
+                }
 
-                // if (spatioTemporalNeighborFound) {
-                //     LightSample neighborLightSample = gLightSampler.getLightSample(spatioTemporalReservoir.sample);
-                //     float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-                //     outputReservoir.update(spatioTemporalReservoir, neighborReservoirTargetPDF, sg);
-                // }
+                if (spatioTemporalNeighborFound) {
+                    LightSample neighborLightSample = gLightSampler.getLightSample(spatioTemporalReservoir.sample);
+                    float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
+                    outputReservoir.update(spatioTemporalReservoir, neighborReservoirTargetPDF, sg);
+                }
 
                 LightSample currentLightSample = gLightSampler.getLightSample(currentReservoir.sample);
                 float currentReservoirTargetPDF = surfaceData.evalTargetPDF(currentLightSample, viewVec);
@@ -383,7 +385,7 @@ struct SpatiotemporaReuseOnePass
 
             // SHADING -------------------------------------------------------------------------------------------
 
-            uint N = 1;
+            uint N = 3;
             let bsdfProperties = bsdf.getProperties(sd);
             float3 emission = bsdfProperties.emission;
             albedo = bsdfProperties.diffuseReflectionAlbedo + bsdfProperties.specularReflectionAlbedo;
@@ -455,12 +457,12 @@ struct SpatiotemporaReuseOnePass
 
 cbuffer CB
 {
-    SpatiotemporaReuseOnePass gSpatioTemporalReuseOnePass;
+    DecoupledPipelinePass gDecoupledPipelinePass;
 }
 
 [numthreads(16, 16, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
 
-    gSpatioTemporalReuseOnePass.execute(dispatchThreadId.xy);
+    gDecoupledPipelinePass.execute(dispatchThreadId.xy);
 }
