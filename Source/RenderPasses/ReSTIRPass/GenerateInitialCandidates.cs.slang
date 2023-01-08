@@ -89,25 +89,35 @@ struct GenerateInitialCandidatesPass
     LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
 
     // Resources:
-    Texture2D<PackedHitInfo> gVBuffer;
     StructuredBuffer<PackedLightSample> gLightTiles;
+    StructuredBuffer<PackedSurfaceData> gSurfaceData;
     RWStructuredBuffer<PackedReservoir> gReservoirs;
-    RWStructuredBuffer<PackedSurfaceData> gSurfaceData;
 
     // Debug:
 	RWTexture2D<float4> gDebug;
 
-	void execute(const uint2 pixel)
+	void execute(const uint2 id)
     {
+#if USE_CHECKERBOARDING
+        const uint y = id.y;
+        const uint x = (y & 1u) ? id.x * 2u + 1u : id.x * 2u;
+        const int xOffset = (y & 1u) ? -1 : 1;
+        const uint2 couplePixel = uint2(x + xOffset, y);
+        const uint2 pixel = uint2(x, y);
+#else
+        const uint2 pixel = id;
+#endif
+
 	    if (any(pixel >= gFrameDim)) return;
 
         Reservoir outputReservoir;
 
-        ShadingData sd;
-        let lod = ExplicitLodTextureSampler(0.f);
+        // Get index for the structured buffer access.
+        uint bufferIndex = getBufferIndex(pixel, gFrameDim);
+        SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
 
         // Check if pixel represents a valid primary hit.
-		if(loadShadingData(pixel, gFrameDim, gScene.camera, gVBuffer, lod, sd))
+        if (surfaceData.isValid())
 		{
 
 			const float3 primaryRayOrigin = gScene.camera.getPosition();
@@ -115,15 +125,8 @@ struct GenerateInitialCandidatesPass
 
             const float3 viewVec = -normalize(primaryRayDir);
 
-			// Create BSDF instance at shading point.
-			let bsdf = gScene.materials.getBSDF(sd, lod);
-
-            // Create surface data from the shading data and bsdf.
-            SurfaceData surfaceData = SurfaceData::create(sd, bsdf, primaryRayOrigin);
-            gSurfaceData[getBufferIndex(pixel, gFrameDim)] = surfaceData.pack();
-
 			// Compute ray origin for new rays spawned from the V-buffer.
-			float3 rayOrigin =  sd.computeNewRayOrigin();
+			float3 rayOrigin =  computeRayOrigin(surfaceData.position, surfaceData.normal);
 
             // Determine screen tile position.
             uint2 screenTilePosition = pixel / kScreenTileSize;
@@ -244,12 +247,15 @@ struct GenerateInitialCandidatesPass
             outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
 #endif
             // outputReservoir.M = 1;
-        } else {
-            // Create invalid surface data.
-            SurfaceData invalidSurfaceData = SurfaceData::createInvalid();
-            gSurfaceData[getBufferIndex(pixel, gFrameDim)] = invalidSurfaceData.pack();
         }
+
         gReservoirs[getBufferIndex(pixel, gFrameDim)] = outputReservoir.pack();
+
+        gDebug[pixel] = float4(0, 0, 0, 1);
+
+#if USE_CHECKERBOARDING
+        gReservoirs[getBufferIndex(couplePixel, gFrameDim)] = outputReservoir.pack();
+#endif
 	}
 }
 

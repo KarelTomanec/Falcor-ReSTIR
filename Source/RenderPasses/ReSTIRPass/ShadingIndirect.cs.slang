@@ -61,7 +61,7 @@ struct ShadePass
     Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
 
     StructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
-    StructuredBuffer<PackedSampleGI> gIndirectLightSamples;
+    StructuredBuffer<PackedReservoirGI> gGIReservoirs;
 
 	RWTexture2D<float4> gOutputColor;
     RWTexture2D<float4> gOutputAlbedo;
@@ -77,27 +77,30 @@ struct ShadePass
     float3 evalIndirectLight(const uint2 pixel, ShadingData sd, const IBSDF bsdf, inout TinyUniformSampleGenerator sg)
     {
         uint bufferIndex = getBufferIndex(pixel, gFrameDim);
-        SampleGI sample = SampleGI::unpack(gIndirectLightSamples[bufferIndex]);
+        ReservoirGI reservoir = ReservoirGI::unpack(gGIReservoirs[bufferIndex]);
+        SampleGI sample = reservoir.sample;
 
         float3 rayOrigin = sd.computeNewRayOrigin();
-        float3 dirToLight = normalize(sample.samplePoint - sample.surfacePoint);
-        float distToLight = distance(sample.surfacePoint, sample.samplePoint);
+        float3 dirToLight = normalize(sample.samplePoint - rayOrigin);
+        float distToLight = distance(rayOrigin, sample.samplePoint);
         float3 Li = sample.Le;
 
-        bool valid = bool(sample.valid);
+        // bool valid = bool(sample.valid);
 
-        if (valid)
-        {
-            // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
-            SceneRayQuery<1> rayQuery;
-            const Ray ray = Ray(rayOrigin, dirToLight, 0.0f, distToLight - kShadowRayEpsilon);
-            if (!rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff))
-            {
-                valid = false;
-            }
-        }
-
-        return Li;
+        // if (valid)
+        // {
+        //     // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
+        //     SceneRayQuery<1> rayQuery;
+        //     const Ray ray = Ray(rayOrigin, dirToLight, 0.0f, distToLight - kShadowRayEpsilon);
+        //     if (!rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff))
+        //     {
+        //         valid = false;
+        //     }
+        // }
+        // gDebug[pixel] = float4(reservoir.W, 0, 0, 1);
+        // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
+        // return bsdf.eval(sd, dirToLight, sg) * Li;
+        return bsdf.eval(sd, dirToLight, sg) * Li * reservoir.W;
     }
 
     float3 evalDirectLight(const uint2 pixel, ShadingData sd, const IBSDF bsdf, inout TinyUniformSampleGenerator sg)
@@ -165,7 +168,7 @@ struct ShadePass
 
             float3 directLight = evalDirectLight(pixel, sd, bsdf, sg);
             float3 indirectLight = evalIndirectLight(pixel, sd, bsdf, sg);
-            color += directLight;
+            // color += directLight;
             color += indirectLight;
 		} else {
 			// Background pixel.

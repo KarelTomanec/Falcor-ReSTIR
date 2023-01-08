@@ -88,7 +88,7 @@ Texture2D<PackedHitInfo> gVBuffer;
 RWStructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
 
 // Outputs
-RWStructuredBuffer<PackedSampleGI> gInitialGISamples;
+RWStructuredBuffer<PackedReservoirGI> gGIReservoirs;
 
 RWTexture2D<float4> gDebug;
 
@@ -99,9 +99,9 @@ static const uint kMaxBounces = 1; // MAX_BOUNCES;
 static const bool kComputeDirect = true; // COMPUTE_DIRECT;
 static const bool kUseImportanceSampling = true; // USE_IMPORTANCE_SAMPLING;
 static const bool kUseAnalyticLights = false;    // USE_ANALYTIC_LIGHTS;
-static const bool kUseEmissiveLights = true; // USE_EMISSIVE_LIGHTS;
-static const bool kUseEnvLight = USE_ENV_LIGHT;
-static const bool kUseEnvBackground = USE_ENV_BACKGROUND;
+static const bool kUseEmissiveLights = true;     // USE_EMISSIVE_LIGHTS;
+static const bool kUseEnvLight = true; // USE_ENV_LIGHT;
+static const bool kUseEnvBackground = true; // USE_ENV_BACKGROUND;
 static const float3 kDefaultBackgroundColor = float3(0, 0, 0);
 static const float kRayTMax = FLT_MAX;
 
@@ -245,12 +245,13 @@ bool generateScatterRay(const ShadingData sd, const IBSDF bsdf, float3 rayOrigin
     if (bsdf.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
     {
         rayData.origin = rayOrigin;
-        if (bsdfSample.isLobe(LobeType::Transmission))
-        {
-            rayData.origin = sd.computeNewRayOrigin(false);
-        }
+        // if (bsdfSample.isLobe(LobeType::Transmission))
+        // {
+        //     rayData.origin = sd.computeNewRayOrigin(false);
+        // }
         rayData.direction = bsdfSample.wo;
         rayData.thp *= bsdfSample.weight;
+        // rayData.pdf *= bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
 
@@ -264,12 +265,12 @@ bool generateFirstScatterRay(const ShadingData sd, const IBSDF bsdf, float3 rayO
     if (bsdf.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
     {
         rayData.origin = rayOrigin;
-        if (bsdfSample.isLobe(LobeType::Transmission))
-        {
-            rayData.origin = sd.computeNewRayOrigin(false);
-        }
+        // if (bsdfSample.isLobe(LobeType::Transmission))
+        // {
+        //     rayData.origin = sd.computeNewRayOrigin(false);
+        // }
         rayData.direction = bsdfSample.wo;
-        rayData.thp *= bsdfSample.weight;
+        // rayData.thp *= bsdfSample.weight;
         rayData.pdf = bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
@@ -323,17 +324,15 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     //     rayData.radiance += rayData.thp * Lr;
     // }
 
-    // Sample emissive environment
-    // TODO: sample any
-
-    LightSample ls = gLightSampler.sampleEmissiveGeometry(rayData.sg);
-
+    // Sample emissive
     // Evaluate contribution.
-    float3 Lr = float3(0.f);
-    // Test visibility by tracing a shadow ray. FIXME
-    // bool V = traceShadowRay(rayOrigin, ls.getDirToSample(rayOrigin), ls.getDistanceToSample(rayOrigin));
-    Lr = bsdf.eval(sd, ls.getDirToSample(rayOrigin), rayData.sg) * ls.Le / ls.pdf;
-    rayData.radiance += rayData.thp * Lr;
+    // Test visibility by tracing a shadow ray.
+    // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
+    // LightSample ls = gLightSampler.sampleEmissiveGeometry(rayData.sg);
+    // float3 Lr = bsdf.eval(sd, ls.getDirToSample(rayOrigin), rayData.sg) * gLightSampler.getLightSampleRadiance(ls.minLightSample) / ls.pdf;
+    // float V = traceShadowRay(rayOrigin, ls.getDirToSample(rayOrigin), ls.getDistanceToSample(rayOrigin) - kShadowRayEpsilon);
+    // rayData.radiance += rayData.thp * Lr * V;
+    // rayData.pdf *= ls.pdf;
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.
@@ -362,6 +361,7 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
 void tracePath(const uint2 pixel, const uint2 frameDim)
 {
     SampleGI sample = {};
+    ReservoirGI reservoir = {};
 
     const float3 primaryRayOrigin = gScene.camera.getPosition();
     const float3 primaryRayDir = getPrimaryRayDir(pixel, frameDim, gScene.camera);
@@ -406,11 +406,16 @@ void tracePath(const uint2 pixel, const uint2 frameDim)
         sample.sampleNormal = rayData.sampleNormal;
         sample.Le = rayData.radiance;
         sample.sourcePdf = rayData.pdf;
-        sample.valid = rayData.pathLength > 0 ? 1 : 0;
+        // sample.valid = rayData.pathLength > 0 ? 1 : 0;
+        sample.valid = 1;
+        float targetPdf = luminance(sample.Le);
+        reservoir.update(sample, targetPdf, sample.sourcePdf, sg);
+
+        reservoir.W = reservoir.W > 0.f ? (reservoir.weightSum / reservoir.M) / reservoir.W : 0.f;
     }
 
     uint bufferIndex = getBufferIndex(pixel, frameDim);
-    gInitialGISamples[bufferIndex] = sample.pack();
+    gGIReservoirs[bufferIndex] = reservoir.pack();
 }
 
 //

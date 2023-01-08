@@ -68,7 +68,8 @@ struct CreateDirectLightSamplesPass
     RWTexture2D<float4> gDebug;
 
 	void execute(const uint2 pixel)
-	{
+    {
+
 	    if (any(pixel >= gFrameDim)) return;
 
 		// Get index for the structured buffer access.

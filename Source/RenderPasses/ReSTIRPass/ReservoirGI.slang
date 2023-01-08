@@ -54,7 +54,7 @@ struct SampleGI
     }
 }
 
-struct PackedReservoirGI ///< 48 bytes
+struct PackedReservoirGI ///< 64 bytes
 {
     PackedSampleGI packedLightSample;
     uint W;
@@ -118,6 +118,7 @@ struct ReservoirGI
         reservoir.sample = SampleGI::unpack(packedReservoir.packedLightSample);
 		reservoir.W = asfloat(packedReservoir.W);
         reservoir.M = asfloat(packedReservoir.M);
+        reservoir.weightSum = reservoir.M * reservoir.W;
 
 		if (isinf(reservoir.W) || isnan(reservoir.W))
         {
@@ -130,7 +131,7 @@ struct ReservoirGI
 
     PackedReservoirGI pack()
     {
-        PackedReservoirGI packedReservoir;
+        PackedReservoirGI packedReservoir = {};
         packedReservoir.packedLightSample = this.sample.pack();
         packedReservoir.W = asuint(this.W);
         packedReservoir.M = asuint(this.M);

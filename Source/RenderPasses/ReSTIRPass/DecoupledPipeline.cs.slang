@@ -82,6 +82,8 @@ struct DecoupledPipelinePass
     static const float kMaxOffset = 5.f;
     static const uint kAttemptCount = 5;
 
+    static const float kSpatialVisibilityThreshold = SPATIAL_VISIBILITY_THRESHOLD;
+
 
     uint2 gFrameDim;  ///< Frame dimensions.
     uint gFrameCount; ///< Frame count since scene was loaded.
@@ -317,6 +319,8 @@ struct DecoupledPipelinePass
             // SPATIAL SAMPLE -------------------------------------------------------------------------------------------
             Reservoir spatioTemporalReservoir;
             bool spatioTemporalNeighborFound = false;
+            float spatialNeighborDistance = 0.f;
+
             [unroll]
             for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
             {
@@ -338,15 +342,14 @@ struct DecoupledPipelinePass
 
                 LightSample neighborLightSample = gLightSampler.getLightSample(spatialReservoir.sample);
                 float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-                spatioTemporalReservoir.update(spatialReservoir, neighborReservoirTargetPDF, sg);
+                if (spatioTemporalReservoir.update(spatialReservoir, neighborReservoirTargetPDF, sg)) spatialNeighborDistance = distance(pixel, neighborPixel);
                 spatioTemporalNeighborFound = true;
             }
 
             spatioTemporalReservoir.W = spatioTemporalReservoir.W > 0.f ? (spatioTemporalReservoir.weightSum / spatioTemporalReservoir.M) / spatioTemporalReservoir.W : 0.f;
             spatioTemporalReservoir.M = min(historyLimit, spatioTemporalReservoir.M);
 
-
-            if (spatioTemporalNeighborFound) {
+            if (spatioTemporalNeighborFound && spatialNeighborDistance > kSpatialVisibilityThreshold) {
                 // Test visibility by tracing a shadow ray.
                 // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
                 SceneRayQuery<1> rayQuery;

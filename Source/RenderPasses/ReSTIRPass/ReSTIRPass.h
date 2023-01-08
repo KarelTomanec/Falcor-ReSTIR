@@ -109,11 +109,14 @@ private:
 
     void tracePass(RenderContext* pRenderContext, const RenderData& renderData, TracePass& tracePass);
     void createLightTiles(RenderContext* pRenderContext);
+    void loadSurfaceDataPass(RenderContext* pRenderContext, const RenderData& renderData);
     void generateInitialCandidatesPass(RenderContext* pRenderContext, const RenderData& renderData);
     void temporalReusePass(RenderContext* pRenderContext, const RenderData& renderData);
     void spatialReusePass(RenderContext* pRenderContext, const RenderData& renderData);
     void createDirectSamplesPass(RenderContext* pRenderContext, const RenderData& renderData);
     void shadePass(RenderContext* pRenderContext, const RenderData& renderData);
+    void temporalReuseGIPass(RenderContext* pRenderContext, const RenderData& renderData);
+    void spatialReuseGIPass(RenderContext* pRenderContext, const RenderData& renderData);
     void shadingIndirectPass(RenderContext* pRenderContext, const RenderData& renderData);
 
     void decoupledPipelinePass(RenderContext* pRenderContext, const RenderData& renderData);
@@ -154,6 +157,10 @@ private:
 
         uint32_t    temporalHistoryLength = 20;
 
+        bool        useCheckerboarding = false;
+
+        float       spatialVisibilityThreshold = 0.f;
+
         Mode        mode = Mode::SpatiotemporalResampling;
     };
 
@@ -173,12 +180,15 @@ private:
     EmissiveLightSampler::SharedPtr mpEmissiveSampler;          ///< Emissive light sampler or nullptr if not used.
 
     ComputePass::SharedPtr          mpCreateLightTiles;
+    ComputePass::SharedPtr          mpLoadSurfaceDataPass;
     ComputePass::SharedPtr          mpGenerateInitialCandidatesPass;
     ComputePass::SharedPtr          mpTemporalReusePass;
     ComputePass::SharedPtr          mpSpatialReusePass;
     ComputePass::SharedPtr          mpCreateDirectLightSamplesPass;
     ComputePass::SharedPtr          mpShadePass;
     ComputePass::SharedPtr          mpShadingIndirect;
+    ComputePass::SharedPtr          mpTemporalReuseGIPass;
+    ComputePass::SharedPtr          mpSpatialReuseGIPass;
 
     ComputePass::SharedPtr          mpDecoupledPipelinePass;
 
@@ -202,7 +212,8 @@ private:
     Buffer::SharedPtr               mpPrevSurfaceData;
     Buffer::SharedPtr               mpPrevReservoirs;
 
-    Buffer::SharedPtr               mpInitialGISamples;
+    Buffer::SharedPtr               mpGIReservoirs;
+    Buffer::SharedPtr               mpPrevGIReservoirs;
 
     // Emissive geometry sampling data
     AliasTable::SharedPtr mpEmissiveGeometryAliasTable;
