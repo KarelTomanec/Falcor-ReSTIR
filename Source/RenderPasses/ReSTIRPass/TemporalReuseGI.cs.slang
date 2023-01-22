@@ -107,6 +107,7 @@ struct TemporalReuseGIPass
         uint2 prevPixel = reprojPos;
         bool neighborFound = false;
 
+
         [unroll]
         for (uint i = 0; i < kAttemptCount; i++)
         {
@@ -154,10 +155,9 @@ struct TemporalReuseGIPass
         outputReservoir.update(prevReservoir, prevTargetPdf, sg);
 
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
-        // prevReservoir.sample = currSample;
-        // prevReservoir.W = currentReservoir.W;
 
         // Store combined reservoir.
+        outputReservoir.M = min(outputReservoir.M, 30);
         gGIReservoirs[bufferIndex] = outputReservoir.pack();
 
 	}

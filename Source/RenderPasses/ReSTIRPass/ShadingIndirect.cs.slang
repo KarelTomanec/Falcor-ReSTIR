@@ -85,21 +85,20 @@ struct ShadePass
         float distToLight = distance(rayOrigin, sample.samplePoint);
         float3 Li = sample.Le;
 
-        // bool valid = bool(sample.valid);
+        bool valid = bool(sample.valid);
 
-        // if (valid)
-        // {
-        //     // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
-        //     SceneRayQuery<1> rayQuery;
-        //     const Ray ray = Ray(rayOrigin, dirToLight, 0.0f, distToLight - kShadowRayEpsilon);
-        //     if (!rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff))
-        //     {
-        //         valid = false;
-        //     }
-        // }
+        if (valid)
+        {
+            // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
+            SceneRayQuery<1> rayQuery;
+            const Ray ray = Ray(rayOrigin, dirToLight, 0.0f, distToLight - kShadowRayEpsilon);
+            if (!rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff))
+            {
+                valid = false;
+            }
+        }
         // gDebug[pixel] = float4(reservoir.W, 0, 0, 1);
         // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
-        // return bsdf.eval(sd, dirToLight, sg) * Li;
         return bsdf.eval(sd, dirToLight, sg) * Li * reservoir.W;
     }
 
@@ -168,7 +167,7 @@ struct ShadePass
 
             float3 directLight = evalDirectLight(pixel, sd, bsdf, sg);
             float3 indirectLight = evalIndirectLight(pixel, sd, bsdf, sg);
-            // color += directLight;
+            color += directLight;
             color += indirectLight;
 		} else {
 			// Background pixel.

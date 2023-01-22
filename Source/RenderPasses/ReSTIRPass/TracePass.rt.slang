@@ -66,9 +66,10 @@ import Rendering.Lights.LightHelpers;
 import Rendering.Lights.EmissiveLightSampler;
 import Rendering.Lights.EmissiveLightSamplerHelpers;
 import Rendering.Lights.EmissivePowerSampler;
+import Rendering.Lights.LightHelpers;
 // import Rendering.Lights.EnvMapSampler;
 
-import LightSampler;
+// import LightSampler;
 import HelperFunctions;
 import ReservoirGI;
 import Utils.Color.ColorHelpers;
@@ -80,12 +81,12 @@ cbuffer CB
 	EmissiveLightSampler gEmissiveLightSampler;
     // EnvMapSampler gEnvMapSampler;                    ///< Environment map sampler. Only valid when kUseEnvLight == true.
 
-    LightSampler gLightSampler;
+    // LightSampler gLightSampler;
 }
 
 // Inputs
 Texture2D<PackedHitInfo> gVBuffer;
-RWStructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
+// RWStructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
 
 // Outputs
 RWStructuredBuffer<PackedReservoirGI> gGIReservoirs;
@@ -278,6 +279,58 @@ bool generateFirstScatterRay(const ShadingData sd, const IBSDF bsdf, float3 rayO
     return false;
 }
 
+/** Describes a light sample.
+ */
+struct LightSample
+{
+    float3 Li;      ///< Incident radiance at the shading point (unshadowed). This is already divided by the pdf.
+    float pdf;      ///< Pdf with respect to solid angle at the shading point.
+    float3 origin;  ///< Ray origin for visibility evaluation (offseted to avoid self-intersection).
+    float distance; ///< Ray distance for visibility evaluation (shortened to avoid self-intersection).
+    float3 dir;     ///< Ray direction for visibility evaluation (normalized).
+    uint lightType; ///< Light type this sample comes from (LightType casted to uint).
+
+    Ray getVisibilityRay() { return Ray(origin, dir, 0.f, distance); }
+};
+
+/** Evaluates the currently configured heuristic for multiple importance sampling (MIS).
+    \param[in] n0 Number of samples taken from the first sampling strategy.
+    \param[in] p0 Pdf for the first sampling strategy.
+    \param[in] n1 Number of samples taken from the second sampling strategy.
+    \param[in] p1 Pdf for the second sampling strategy.
+    \return Weight for the contribution from the first strategy (p0).
+*/
+float evalMIS(float n0, float p0, float n1, float p1)
+{
+
+    // Balance heuristic
+    float q0 = n0 * p0;
+    float q1 = n1 * p1;
+    return q0 / (q0 + q1);
+
+}
+
+bool generateEmissiveSample(const float3 pos, const float3 normal, const bool upperHemisphere, inout SampleGenerator sg, out LightSample ls)
+{
+    ls = {}; // Default initialization to avoid divergence at returns.
+    if (!kUseEmissiveLights) return false;
+
+    TriangleLightSample tls;
+    if (!gEmissiveLightSampler.sampleLight(pos, normal, upperHemisphere, sg, tls)) return false;
+
+    // Setup returned sample.
+    ls.Li = tls.pdf > 0.f ? tls.Le / tls.pdf : float3(0);
+    ls.pdf = tls.pdf;
+    // Offset shading and light position to avoid self-intersection.
+    float3 lightPos = computeRayOrigin(tls.posW, tls.normalW);
+    ls.origin = lightPos;
+    float3 toLight = lightPos - pos;
+    ls.distance = length(toLight);
+    ls.dir = normalize(toLight);
+
+    return any(ls.Li > 0.f);
+}
+
 /** Process a hit.
     Loads the shading data, samples analytic lights and samples a new scatter ray.
     Terminates the path if maximum number of bounces is reached.
@@ -329,10 +382,39 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     // Test visibility by tracing a shadow ray.
     // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
     // LightSample ls = gLightSampler.sampleEmissiveGeometry(rayData.sg);
-    // float3 Lr = bsdf.eval(sd, ls.getDirToSample(rayOrigin), rayData.sg) * gLightSampler.getLightSampleRadiance(ls.minLightSample) / ls.pdf;
-    // float V = traceShadowRay(rayOrigin, ls.getDirToSample(rayOrigin), ls.getDistanceToSample(rayOrigin) - kShadowRayEpsilon);
-    // rayData.radiance += rayData.thp * Lr * V;
-    // rayData.pdf *= ls.pdf;
+    // float3 originToLight = ls.posDir - rayOrigin;
+    // float distSqr = max(FLT_MIN, dot(originToLight, originToLight));
+    // float distance = sqrt(distSqr);
+    // float3 sampleDir = originToLight / distance;
+    // bool V = traceShadowRay(rayOrigin, sampleDir, distance - kShadowRayEpsilon);
+    // if (V) {
+    //     float geometryFactor = max(0.f, dot(ls.normal, -sampleDir)) / distSqr;
+    //     float3 Lr = bsdf.eval(sd, sampleDir, rayData.sg) * gLightSampler.getLightSampleRadiance(ls.minLightSample) * geometryFactor / ls.pdf;
+    //     rayData.radiance += rayData.thp * Lr;
+    //     // rayData.pdf *= ls.pdf;
+    // }
+
+    // Falcor's emissive sampling
+    LightSample ls;
+    bool validSample = generateEmissiveSample(rayOrigin, sd.N, true, rayData.sg, ls);
+    bool V = traceShadowRay(rayOrigin, ls.dir, ls.distance - kShadowRayEpsilon);
+    float3 Lr;
+    if (V) {
+        Lr = bsdf.eval(sd, ls.dir, rayData.sg) * ls.Li;
+        // rayData.pdf *= ls.pdf;
+    } else {
+        validSample = false;
+    }
+
+    if (validSample) {
+        float scatterPdf = bsdf.evalPdf(sd, ls.dir, true);
+        Lr *= evalMIS(1, ls.pdf, 1, scatterPdf);
+        float3 weight = bsdf.eval(sd, ls.dir, rayData.sg);
+        rayData.radiance += rayData.thp * weight * Lr;
+    }
+
+
+
 
     // Generate scatter ray for the next path segment.
     // The raygen shader will continue the path based on the returned payload.

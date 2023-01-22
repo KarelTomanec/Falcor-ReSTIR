@@ -313,7 +313,10 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         createDirectSamplesPass(pRenderContext, renderData);
         tracePass(pRenderContext, renderData, *mpTracePass);
         temporalReuseGIPass(pRenderContext, renderData);
-        spatialReuseGIPass(pRenderContext, renderData);
+        for (size_t iteration = 0; iteration < 1; iteration++)
+        {
+            spatialReuseGIPass(pRenderContext, renderData);
+        }
         shadingIndirectPass(pRenderContext, renderData);
         break;
     }
@@ -443,11 +446,11 @@ void ReSTIRPass::setShaderData(const ShaderVar& var, const RenderData& renderDat
 
     var["gVBuffer"] = renderData.getTexture(kInputVBuffer);
 
-    //if (useLightSampling && mpEmissiveSampler)
-    //{
-    //    // TODO: Do we have to bind this every frame?
-    //    mpEmissiveSampler->setShaderData(var["CB"]["gEmissiveLightSampler"]);
-    //}
+    if (useLightSampling && mpEmissiveSampler)
+    {
+        // TODO: Do we have to bind this every frame?
+        mpEmissiveSampler->setShaderData(var["CB"]["gEmissiveLightSampler"]);
+    }
 }
 
 void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& renderData, TracePass& tracePass)
@@ -468,13 +471,13 @@ void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& rend
     var["gGIReservoirs"] = mpGIReservoirs;
     var["gDebug"] = renderData.getTexture(kDebug);
 
-    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["CB"]["gLightSampler"]["emissiveGeometryAliasTable"]);
-    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["CB"]["gLightSampler"]["analyticLightsAliasTable"]);
-    if (mpEnvironmentAliasTable)
-    {
-        mpEnvironmentAliasTable->setShaderData(var["CB"]["gLightSampler"]["environmentAliasTable"]);
-        var["CB"]["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
-    }
+    //if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["CB"]["gLightSampler"]["emissiveGeometryAliasTable"]);
+    //if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["CB"]["gLightSampler"]["analyticLightsAliasTable"]);
+    //if (mpEnvironmentAliasTable)
+    //{
+    //    mpEnvironmentAliasTable->setShaderData(var["CB"]["gLightSampler"]["environmentAliasTable"]);
+    //    var["CB"]["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
+    //}
 
     // Full screen dispatch.
     mpScene->raytrace(pRenderContext, tracePass.pProgram.get(), tracePass.pVars, { mFrameDim, 1u });
@@ -757,6 +760,7 @@ void ReSTIRPass::spatialReuseGIPass(RenderContext* pRenderContext, const RenderD
     var["gFrameCount"] = mFrameCount;
 
     var["gSurfaceData"] = mpSurfaceData;
+
 
     std::swap(mpGIReservoirs, mpPrevGIReservoirs);
 
@@ -1080,11 +1084,23 @@ bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)
                 mRecompile = true;
             }
         }
+
+        if (!mpEmissiveSampler)
+        {
+            const auto& pLights = mpScene->getLightCollection(pRenderContext);
+            FALCOR_ASSERT(pLights && pLights->getActiveLightCount() > 0);
+            FALCOR_ASSERT(!mpEmissiveSampler);
+
+            mpEmissiveSampler = EmissivePowerSampler::create(pRenderContext, mpScene);
+            lightingChanged = true;
+            mRecompile = true;
+        }
     }
     else
     {
         if (mpEmissiveGeometryAliasTable)
         {
+            mpEmissiveSampler = nullptr;
             mpEmissiveGeometryAliasTable = nullptr;
             lightingChanged = true;
             mRecompile = true;
@@ -1114,12 +1130,12 @@ bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)
         }
     }
 
-    //if (mpEmissiveSampler)
-    //{
-    //    lightingChanged |= mpEmissiveSampler->update(pRenderContext);
-    //    auto defines = mpEmissiveSampler->getDefines();
-    //    if (mpTracePass && mpTracePass->pProgram->addDefines(defines)) mRecompile = true;
-    //}
+    if (mpEmissiveSampler)
+    {
+        lightingChanged |= mpEmissiveSampler->update(pRenderContext);
+        auto defines = mpEmissiveSampler->getDefines();
+        if (mpTracePass && mpTracePass->pProgram->addDefines(defines)) mRecompile = true;
+    }
 
     return lightingChanged;
 }
