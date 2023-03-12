@@ -1138,9 +1138,12 @@ bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)
         }
         else
         {
-            mpEmissiveSampler = nullptr;
-            lightingChanged = true;
-            mRecompile = true;
+            if (mpEmissiveSampler)
+            {
+                mpEmissiveSampler = nullptr;
+                lightingChanged = true;
+                mRecompile = true;
+            }
         }
     }
     else
