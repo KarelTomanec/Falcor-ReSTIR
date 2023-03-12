@@ -65,14 +65,20 @@ struct TemporalReusePass
 	Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
 
     StructuredBuffer<PackedSurfaceData> gSurfaceData;
+    RWStructuredBuffer<PackedNormalDepth> gNormalDepth;
+
     StructuredBuffer<PackedSurfaceData> gPrevSurfaceData;
+    RWStructuredBuffer<PackedNormalDepth> gPrevNormalDepth;
 	StructuredBuffer<PackedReservoir> gPrevReservoirs; ///< Buffer with packed reservoirs from the previous frame.
 	RWStructuredBuffer<PackedReservoir> gReservoirs; ///< Buffer with packed reservoirs.
 
     // Debug:
     RWTexture2D<float4> gDebug;
 
-	void execute(const uint2 pixel)
+    static const float kMaxOffset = 5.f;
+    static const uint kAttemptCount = 5;
+
+    void execute(const uint2 pixel)
 	{
 	    if (any(pixel >= gFrameDim)) return;
 
@@ -94,27 +100,41 @@ struct TemporalReusePass
 
         // Reproject the pixel position.
         uint2 reprojPos = uint2(float2(pixel) + gMotionVectors[pixel] * gFrameDim + sampleNext2D(sg));
-
-        // Get surface data for the current pixel.
-        SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-        if (!surfaceData.isValid())
-            return;
-
-        // ShadingData sdPrev;
-        SurfaceData prevSurfaceData;
         uint2 prevPixel = reprojPos;
 
-        // Test if previous pixel position is out of bounds.
-        if (any(prevPixel >= gFrameDim) || any(prevPixel < 0))
+        NormalDepth normalDepth = NormalDepth::unpack(gNormalDepth[bufferIndex]);
+        if (!normalDepth.isValid())
             return;
 
-        // Load shading data for the previous pixel.
-        prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
-        if (!prevSurfaceData.isValid())
-            return;
+        bool neighborFound = false;
 
-        // Compare the difference in camera distance, and the angle between normals.
-        if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth))
+        [unroll]
+        for (uint i = 0; i < kAttemptCount; i++)
+        {
+            int2 offset = int2(0, 0);
+            if (i > 0) {
+
+                offset.x = int((sampleNext1D(sg) - 0.5) * kMaxOffset);
+                offset.y = int((sampleNext1D(sg) - 0.5) * kMaxOffset);
+            }
+            prevPixel = reprojPos + offset;
+
+            // Test if previous pixel position is out of bounds.
+            if (any(prevPixel >= gFrameDim) || any(prevPixel < 0))
+                continue;
+
+            NormalDepth prevNormalDepth = NormalDepth::unpack(gPrevNormalDepth[bufferIndex]);
+            if (!prevNormalDepth.isValid())
+                return;
+
+            // Compare the difference in camera distance, and the angle between normals.
+            if (!isValidNeighbor(normalDepth.normal, prevNormalDepth.normal, normalDepth.depth, prevNormalDepth.depth)) continue;
+
+            neighborFound = true;
+            break;
+        }
+
+        if (!neighborFound)
             return;
 
         // Get index for the structured buffer access for the previous pixel.
@@ -128,6 +148,12 @@ struct TemporalReusePass
 
         // Create output reservoir.
         Reservoir outputReservoir;
+
+        // Get surface data for the current pixel.
+        SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
+
+        // Load shading data for the previous pixel.
+        SurfaceData prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
 
 #if BIASED
 

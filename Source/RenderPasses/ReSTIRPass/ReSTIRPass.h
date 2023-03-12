@@ -208,8 +208,10 @@ private:
     Buffer::SharedPtr               mpDirectLightSamples;
 
     Buffer::SharedPtr               mpSurfaceData;
+    Buffer::SharedPtr               mpNormalDepth;
 
     Buffer::SharedPtr               mpPrevSurfaceData;
+    Buffer::SharedPtr               mpPrevNormalDepth;
     Buffer::SharedPtr               mpPrevReservoirs;
 
     Buffer::SharedPtr               mpGIReservoirs;

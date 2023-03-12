@@ -15,6 +15,54 @@ import LightSampler;
 
 import Reservoir;
 
+struct PackedNormalDepth ///< 8 bytes
+{
+    uint normal;
+    uint depth;
+};
+
+struct NormalDepth
+{
+    float3 normal;
+    float depth;
+
+    static NormalDepth createInvalid()
+    {
+        NormalDepth normalDepth = {};
+        normalDepth.depth = -FLT_MAX;
+        return normalDepth;
+    }
+
+    static NormalDepth create(const float3 normal, const float depth)
+    {
+        NormalDepth normalDepth = {};
+        normalDepth.normal = normal;
+        normalDepth.depth = depth;
+        return normalDepth;
+    }
+
+    static NormalDepth unpack(const PackedNormalDepth packedNormalDepth)
+    {
+        NormalDepth normalDepth = {};
+        normalDepth.normal = decodeNormal2x16(packedNormalDepth.normal);
+        normalDepth.depth = asfloat(packedNormalDepth.depth);
+        return normalDepth;
+    }
+
+    PackedNormalDepth pack()
+    {
+        PackedNormalDepth packedNormalDepth = {};
+        packedNormalDepth.normal = encodeNormal2x16(this.normal);
+        packedNormalDepth.depth = asuint(this.depth);
+        return packedNormalDepth;
+    }
+
+    bool isValid()
+    {
+        return depth != -FLT_MAX;
+    }
+};
+
 struct PackedSurfaceData ///< 32 bytes
 {
     uint3 position;
@@ -23,7 +71,7 @@ struct PackedSurfaceData ///< 32 bytes
     uint diffuseWeight;
     uint specularRoughness;
     uint depth;
-}
+};
 
 struct SurfaceData
 {

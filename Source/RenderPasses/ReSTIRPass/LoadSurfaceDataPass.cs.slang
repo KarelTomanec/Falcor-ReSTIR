@@ -66,6 +66,7 @@ struct LoadSurfaceDataPass
     // Resources:
     Texture2D<PackedHitInfo> gVBuffer;
     RWStructuredBuffer<PackedSurfaceData> gSurfaceData;
+    RWStructuredBuffer<PackedNormalDepth> gNormalDepth;
 
     // Debug:
 	RWTexture2D<float4> gDebug;
@@ -92,10 +93,16 @@ struct LoadSurfaceDataPass
             // Create surface data from the shading data and bsdf.
             SurfaceData surfaceData = SurfaceData::create(sd, bsdf, primaryRayOrigin);
             gSurfaceData[getBufferIndex(pixel, gFrameDim)] = surfaceData.pack();
+
+            // Pack normal and depth
+            NormalDepth normalDepth = NormalDepth::create(sd.N, distance(sd.posW, primaryRayOrigin));
+            gNormalDepth[getBufferIndex(pixel, gFrameDim)] = normalDepth.pack();
         } else {
             // Create invalid surface data.
             SurfaceData invalidSurfaceData = SurfaceData::createInvalid();
             gSurfaceData[getBufferIndex(pixel, gFrameDim)] = invalidSurfaceData.pack();
+            NormalDepth invalidNormalDepth = NormalDepth::createInvalid();
+            gNormalDepth[getBufferIndex(pixel, gFrameDim)] = invalidNormalDepth.pack();
         }
 	}
 }

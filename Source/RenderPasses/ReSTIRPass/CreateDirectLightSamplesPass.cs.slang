@@ -60,6 +60,7 @@ struct CreateDirectLightSamplesPass
     // Resources:
     StructuredBuffer<PackedReservoir> gReservoirs; ///< Buffer with packed reservoirs.
     StructuredBuffer<PackedSurfaceData> gSurfaceData;
+    StructuredBuffer<PackedNormalDepth> gNormalDepth;
     RWStructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
 
     LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
@@ -70,14 +71,17 @@ struct CreateDirectLightSamplesPass
 	void execute(const uint2 pixel)
     {
 
-	    if (any(pixel >= gFrameDim)) return;
+	    if (any(pixel >= gFrameDim))
+            return;
 
 		// Get index for the structured buffer access.
 		uint bufferIndex = getBufferIndex(pixel, gFrameDim);
 
         // Create pixel Data for the current pixel.
+        NormalDepth normalDepth = NormalDepth::unpack(gNormalDepth[bufferIndex]);
+        if (!normalDepth.isValid())
+            return;
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-        if (!surfaceData.isValid()) return;
 
         Reservoir reservoir = Reservoir::unpack(gReservoirs[bufferIndex]);
 

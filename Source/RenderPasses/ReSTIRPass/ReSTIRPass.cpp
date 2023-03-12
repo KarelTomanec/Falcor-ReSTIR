@@ -519,6 +519,7 @@ void ReSTIRPass::loadSurfaceDataPass(RenderContext* pRenderContext, const Render
 
     var["gVBuffer"] = renderData.getTexture(kInputVBuffer);
     var["gSurfaceData"] = mpSurfaceData;
+    var["gNormalDepth"] = mpNormalDepth;
 
     var["gDebug"] = renderData.getTexture(kDebug);
 
@@ -583,8 +584,10 @@ void ReSTIRPass::temporalReusePass(RenderContext* pRenderContext, const RenderDa
     var["gMotionVectors"] = renderData.getTexture(kInputMotionVectors);
     var["gReservoirs"] = mpReservoirs;
     var["gSurfaceData"] = mpSurfaceData;
+    var["gNormalDepth"] = mpNormalDepth;
 
     var["gPrevSurfaceData"] = mpPrevSurfaceData;
+    var["gPrevNormalDepth"] = mpPrevNormalDepth;
     var["gPrevReservoirs"] = mpPrevReservoirs;
     var["gDebug"] = renderData.getTexture(kDebug);
 
@@ -618,6 +621,7 @@ void ReSTIRPass::spatialReusePass(RenderContext* pRenderContext, const RenderDat
     var["gFrameCount"] = mFrameCount;
 
     var["gSurfaceData"] = mpSurfaceData;
+    var["gNormalDepth"] = mpNormalDepth;
 
     std::swap(mpReservoirs, mpPrevReservoirs);
 
@@ -700,6 +704,7 @@ void ReSTIRPass::createDirectSamplesPass(RenderContext* pRenderContext, const Re
     var["gFrameDim"] = mFrameDim;
     var["gFrameCount"] = mFrameCount;
 
+    var["gNormalDepth"] = mpNormalDepth;
     var["gSurfaceData"] = mpSurfaceData;
     var["gReservoirs"] = mpReservoirs;
     var["gDirectLightSamples"] = mpDirectLightSamples;
@@ -1023,6 +1028,16 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
     if (!mpPrevSurfaceData || mpPrevSurfaceData->getElementCount() < pixelCount)
     {
         mpPrevSurfaceData = Buffer::createStructured(sizeof(uint4) * 2, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
+    }
+
+    // Create normal depth buffers.
+    if (!mpNormalDepth || mpNormalDepth->getElementCount() < pixelCount)
+    {
+        mpNormalDepth = Buffer::createStructured(sizeof(uint2), pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
+    }
+    if (!mpPrevNormalDepth || mpPrevNormalDepth->getElementCount() < pixelCount)
+    {
+        mpPrevNormalDepth = Buffer::createStructured(sizeof(uint2), pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
     // Create light tile buffers.
@@ -1370,6 +1385,7 @@ void ReSTIRPass::endFrame(RenderContext* pRenderContext, const RenderData& rende
 
     std::swap(mpReservoirs, mpPrevReservoirs);
     std::swap(mpSurfaceData, mpPrevSurfaceData);
+    std::swap(mpNormalDepth, mpPrevNormalDepth);
     std::swap(mpGIReservoirs, mpPrevGIReservoirs);
 }
 

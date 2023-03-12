@@ -62,6 +62,7 @@ struct SpatialReusePass
 	// Resources:
     StructuredBuffer<PackedReservoir> gReservoirs; ///< Buffer with packed reservoirs.
     StructuredBuffer<PackedSurfaceData> gSurfaceData;
+    StructuredBuffer<PackedNormalDepth> gNormalDepth;
 	RWStructuredBuffer<PackedReservoir> gOutReservoirs; ///< Output buffer with packed reservoirs.
 
     // Debug:
@@ -88,8 +89,12 @@ struct SpatialReusePass
         const float3 viewVec = -normalize(primaryRayDir);
 
         // Get pixel Data for the current pixel.
+        NormalDepth normalDepth = NormalDepth::unpack(gNormalDepth[bufferIndex]);
+        if (!normalDepth.isValid())
+            return;
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-        if (!surfaceData.isValid()) return;
+        if (!surfaceData.isValid())
+            return;
 
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
         float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
@@ -111,12 +116,15 @@ struct SpatialReusePass
 			Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
 
             if (neighborReservoir.M == 0.f) continue;
-
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            if (!neighborSurfaceData.isValid()) continue;
             // neighborReservoir.M = min(neighborReservoir.M, 100);
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
+            NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
+            if (!neighborNormalDepth.isValid())
+                return;
+
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+
+            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
@@ -140,10 +148,13 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            if (!neighborSurfaceData.isValid()) continue;
+            NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
+            if (!neighborNormalDepth.isValid())
+                return;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+
+            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
@@ -170,10 +181,13 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            if (!neighborSurfaceData.isValid()) continue;
+            NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
+            if (!neighborNormalDepth.isValid())
+                return;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+
+            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             if (neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec))
             {
@@ -200,10 +214,13 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            if (!neighborSurfaceData.isValid()) continue;
+            NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
+            if (!neighborNormalDepth.isValid())
+                return;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+
+            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
@@ -242,10 +259,13 @@ struct SpatialReusePass
 
             if (neighborReservoir.M == 0.f) continue;
 
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            if (!neighborSurfaceData.isValid()) continue;
+            NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
+            if (!neighborNormalDepth.isValid())
+                return;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+
+            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec);
 #if UNBIASED_RAYTRACED
