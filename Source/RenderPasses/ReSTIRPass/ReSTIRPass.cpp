@@ -104,7 +104,7 @@ namespace
         { (uint32_t)ReSTIRPass::Mode::TemporalResampling, "Temporal resampling only" },
         { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResampling, "Spatiotemporal resampling" },
         { (uint32_t)ReSTIRPass::Mode::DecoupledPipeline, "Decoupled pipeline" },
-        { (uint32_t)ReSTIRPass::Mode::PathTraceReSTIR, "ReSTIRDI + ReSTIRGI" },
+        { (uint32_t)ReSTIRPass::Mode::ReSTIRGI, "ReSTIRDI + ReSTIRGI" },
     };
 
     Gui::DropdownList kBiasCorrectionList =
@@ -302,7 +302,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
     case Mode::DecoupledPipeline:
         decoupledPipelinePass(pRenderContext, renderData);
         break;
-    case Mode::PathTraceReSTIR:
+    case Mode::ReSTIRGI:
         loadSurfaceDataPass(pRenderContext, renderData);
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
@@ -552,15 +552,14 @@ void ReSTIRPass::generateInitialCandidatesPass(RenderContext* pRenderContext, co
 
     var["gDebug"] = renderData.getTexture(kDebug);
 
-
-    if (mpEmissiveSampler)
+    if (mpEmissiveGeometryAliasTable)
     {
-        // TODO: Do we have to bind this every frame?
-        mpEmissiveSampler->setShaderData(var["gEmissiveLightSampler"]);
+        mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
     }
-
-    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
-    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    if (mpAnalyticLightsAliasTable)
+    {
+        mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    }
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -589,8 +588,14 @@ void ReSTIRPass::temporalReusePass(RenderContext* pRenderContext, const RenderDa
     var["gPrevReservoirs"] = mpPrevReservoirs;
     var["gDebug"] = renderData.getTexture(kDebug);
 
-    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
-    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    if (mpEmissiveGeometryAliasTable)
+    {
+        mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    }
+    if (mpAnalyticLightsAliasTable)
+    {
+        mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    }
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -620,8 +625,14 @@ void ReSTIRPass::spatialReusePass(RenderContext* pRenderContext, const RenderDat
     var["gOutReservoirs"] = mpReservoirs;
     var["gDebug"] = renderData.getTexture(kDebug);
 
-    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
-    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    if (mpEmissiveGeometryAliasTable)
+    {
+        mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    }
+    if (mpAnalyticLightsAliasTable)
+    {
+        mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    }
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -660,8 +671,14 @@ void ReSTIRPass::decoupledPipelinePass(RenderContext* pRenderContext, const Rend
 
     var["gDebug"] = renderData.getTexture(kDebug);
 
-    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
-    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    if (mpEmissiveGeometryAliasTable)
+    {
+        mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    }
+    if (mpAnalyticLightsAliasTable)
+    {
+        mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    }
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -689,8 +706,14 @@ void ReSTIRPass::createDirectSamplesPass(RenderContext* pRenderContext, const Re
 
     var["gDebug"] = renderData.getTexture(kDebug);
 
-    if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
-    if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    if (mpEmissiveGeometryAliasTable)
+    {
+        mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+    }
+    if (mpAnalyticLightsAliasTable)
+    {
+        mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+    }
     if (mpEnvironmentAliasTable)
     {
         mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
@@ -1014,12 +1037,12 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
         mpDirectLightSamples = Buffer::createStructured(sizeof(uint4), pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
-    if (!mpGIReservoirs || mpGIReservoirs->getElementCount() < pixelCount)
+    if (mReSTIRParams.mode == Mode::ReSTIRGI && (!mpGIReservoirs || mpGIReservoirs->getElementCount() < pixelCount))
     {
         mpGIReservoirs = Buffer::createStructured(sizeof(uint4) * 4, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
-    if (!mpPrevGIReservoirs || mpPrevGIReservoirs->getElementCount() < pixelCount)
+    if (mReSTIRParams.mode == Mode::ReSTIRGI && (!mpPrevGIReservoirs || mpPrevGIReservoirs->getElementCount() < pixelCount))
     {
         mpPrevGIReservoirs = Buffer::createStructured(sizeof(uint4) * 4, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
@@ -1085,13 +1108,22 @@ bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)
             }
         }
 
-        if (!mpEmissiveSampler)
+        if (mReSTIRParams.mode == Mode::ReSTIRGI)
         {
-            const auto& pLights = mpScene->getLightCollection(pRenderContext);
-            FALCOR_ASSERT(pLights && pLights->getActiveLightCount() > 0);
-            FALCOR_ASSERT(!mpEmissiveSampler);
+            if (!mpEmissiveSampler)
+            {
+                const auto& pLights = mpScene->getLightCollection(pRenderContext);
+                FALCOR_ASSERT(pLights && pLights->getActiveLightCount() > 0);
+                FALCOR_ASSERT(!mpEmissiveSampler);
 
-            mpEmissiveSampler = EmissivePowerSampler::create(pRenderContext, mpScene);
+                mpEmissiveSampler = EmissivePowerSampler::create(pRenderContext, mpScene);
+                lightingChanged = true;
+                mRecompile = true;
+            }
+        }
+        else
+        {
+            mpEmissiveSampler = nullptr;
             lightingChanged = true;
             mRecompile = true;
         }
@@ -1214,7 +1246,6 @@ AliasTable::SharedPtr ReSTIRPass::createEnvironmentAliasTable(RenderContext* pRe
     return AliasTable::create(std::move(weights), mRnd);
 }
 
-
 AliasTable::SharedPtr ReSTIRPass::createAnalyticLightsAliasTable(RenderContext* pRenderContext)
 {
     const auto& activeAnalyticLights = mpScene->getActiveLights();
@@ -1312,17 +1343,6 @@ bool ReSTIRPass::beginFrame(RenderContext* pRenderContext, const RenderData& ren
         dict[Falcor::kRenderPassRefreshFlags] = flags;
         mOptionsChanged = false;
     }
-
-
-
-    // TODO:
-    // Check if GBuffer has adjusted shading normals enabled.
-    //bool gbufferAdjustShadingNormals = dict.getValue(Falcor::kRenderPassGBufferAdjustShadingNormals, false);
-    //if (gbufferAdjustShadingNormals != mGBufferAdjustShadingNormals)
-    //{
-    //    mGBufferAdjustShadingNormals = gbufferAdjustShadingNormals;
-    //    mRecompile = true;
-    //}
 
     return true;
 }

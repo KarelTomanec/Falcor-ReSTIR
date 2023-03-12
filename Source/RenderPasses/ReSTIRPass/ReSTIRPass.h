@@ -65,7 +65,7 @@ public:
         TemporalResampling,
         SpatiotemporalResampling,
         DecoupledPipeline,
-        PathTraceReSTIR,
+        ReSTIRGI,
     };
 
     enum class BiasCorrection
