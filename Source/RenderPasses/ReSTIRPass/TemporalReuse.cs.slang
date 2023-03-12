@@ -72,9 +72,6 @@ struct TemporalReusePass
     // Debug:
     RWTexture2D<float4> gDebug;
 
-    static const float kMaxOffset = 5.f;
-    static const uint kAttemptCount = 5;
-
 	void execute(const uint2 pixel)
 	{
 	    if (any(pixel >= gFrameDim)) return;
@@ -100,39 +97,25 @@ struct TemporalReusePass
 
         // Get surface data for the current pixel.
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-        if (!surfaceData.isValid()) return;
+        if (!surfaceData.isValid())
+            return;
 
         // ShadingData sdPrev;
         SurfaceData prevSurfaceData;
         uint2 prevPixel = reprojPos;
-        bool neighborFound = false;
 
-        [unroll]
-        for (uint i = 0; i < kAttemptCount; i++)
-        {
-            int2 offset = int2(0, 0);
-            if (i > 0) {
+        // Test if previous pixel position is out of bounds.
+        if (any(prevPixel >= gFrameDim) || any(prevPixel < 0))
+            return;
 
-                offset.x = int((sampleNext1D(sg) - 0.5) * kMaxOffset);
-                offset.y = int((sampleNext1D(sg) - 0.5) * kMaxOffset);
-            }
-            prevPixel = reprojPos + offset;
+        // Load shading data for the previous pixel.
+        prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
+        if (!prevSurfaceData.isValid())
+            return;
 
-            // Test if previous pixel position is out of bounds.
-            if (any(prevPixel >= gFrameDim) || any(prevPixel < 0)) continue;
-
-            // Load shading data for the previous pixel.
-            prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
-            if (!prevSurfaceData.isValid()) continue;
-
-            // Compare the difference in camera distance, and the angle between normals.
-            if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth)) continue;
-
-            neighborFound = true;
-            break;
-		}
-
-        if (!neighborFound) return;
+        // Compare the difference in camera distance, and the angle between normals.
+        if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth))
+            return;
 
         // Get index for the structured buffer access for the previous pixel.
         uint prevBufferIndex = getBufferIndex(prevPixel, gFrameDim);
