@@ -77,11 +77,11 @@ struct LoadSurfaceDataPass
 	    if (any(pixel >= gFrameDim)) return;
         ShadingData sd;
         let lod = ExplicitLodTextureSampler(0.f);
+        uint bufferIndex = getBufferIndex(pixel, gFrameDim);
 
         // Check if pixel represents a valid primary hit.
 		if(loadShadingData(pixel, gFrameDim, gScene.camera, gVBuffer, lod, sd))
-		{
-
+        {
 			const float3 primaryRayOrigin = gScene.camera.getPosition();
 			const float3 primaryRayDir = getPrimaryRayDir(pixel, gFrameDim, gScene.camera);
 
@@ -92,17 +92,17 @@ struct LoadSurfaceDataPass
 
             // Create surface data from the shading data and bsdf.
             SurfaceData surfaceData = SurfaceData::create(sd, bsdf, primaryRayOrigin);
-            gSurfaceData[getBufferIndex(pixel, gFrameDim)] = surfaceData.pack();
+            gSurfaceData[bufferIndex] = surfaceData.pack();
 
             // Pack normal and depth
             NormalDepth normalDepth = NormalDepth::create(sd.N, distance(sd.posW, primaryRayOrigin));
-            gNormalDepth[getBufferIndex(pixel, gFrameDim)] = normalDepth.pack();
+            gNormalDepth[bufferIndex] = normalDepth.pack();
         } else {
             // Create invalid surface data.
             SurfaceData invalidSurfaceData = SurfaceData::createInvalid();
-            gSurfaceData[getBufferIndex(pixel, gFrameDim)] = invalidSurfaceData.pack();
+            gSurfaceData[bufferIndex] = invalidSurfaceData.pack();
             NormalDepth invalidNormalDepth = NormalDepth::createInvalid();
-            gNormalDepth[getBufferIndex(pixel, gFrameDim)] = invalidNormalDepth.pack();
+            gNormalDepth[bufferIndex] = invalidNormalDepth.pack();
         }
 	}
 }

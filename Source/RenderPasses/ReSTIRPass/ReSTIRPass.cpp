@@ -505,7 +505,6 @@ void ReSTIRPass::createLightTiles(RenderContext* pRenderContext)
     mpCreateLightTiles->execute(pRenderContext, uint3(mReSTIRParams.lightTileSize, mReSTIRParams.lightTileCount, 1));
 }
 
-
 void ReSTIRPass::loadSurfaceDataPass(RenderContext* pRenderContext, const RenderData& renderData)
 {
 
@@ -527,7 +526,6 @@ void ReSTIRPass::loadSurfaceDataPass(RenderContext* pRenderContext, const Render
     mpLoadSurfaceDataPass["gScene"] = mpScene->getParameterBlock();
     mpLoadSurfaceDataPass->execute(pRenderContext, { mFrameDim.x, mFrameDim.y, 1u });
 }
-
 
 void ReSTIRPass::generateInitialCandidatesPass(RenderContext* pRenderContext, const RenderData& renderData)
 {
@@ -910,55 +908,55 @@ void ReSTIRPass::updatePrograms()
         desc.addShaderLibrary(kCreateLightTilesPassFilename).csEntry("main");
         mpCreateLightTiles = ComputePass::create(desc, defines, false);
     }
-    if (!mpLoadSurfaceDataPass)
+    if (!mpLoadSurfaceDataPass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kLoadSurfaceDataPassFilename).csEntry("main");
         mpLoadSurfaceDataPass = ComputePass::create(desc, defines, false);
     }
-    if (!mpGenerateInitialCandidatesPass)
+    if (!mpGenerateInitialCandidatesPass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kGenerateInitialCandidatesPassFilename).csEntry("main");
         mpGenerateInitialCandidatesPass = ComputePass::create(desc, defines, false);
     }
-    if (!mpTemporalReusePass)
+    if (!mpTemporalReusePass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kTemporalReusePassFilename).csEntry("main");
         mpTemporalReusePass = ComputePass::create(desc, defines, false);
     }
-    if (!mpSpatialReusePass)
+    if (!mpSpatialReusePass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kSpatialReusePassFilename).csEntry("main");
         mpSpatialReusePass = ComputePass::create(desc, defines, false);
     }
-    if (!mpCreateDirectLightSamplesPass)
+    if (!mpCreateDirectLightSamplesPass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kCreateDirectLightSampleFilename).csEntry("main");
         mpCreateDirectLightSamplesPass = ComputePass::create(desc, defines, false);
     }
-    if (!mpShadePass)
+    if (!mpShadePass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kShadePassFilename).csEntry("main");
         mpShadePass = ComputePass::create(desc, defines, false);
     }
-    if (!mpTemporalReuseGIPass)
+    if (!mpTemporalReuseGIPass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kTemporalReuseGIPassFilename).csEntry("main");
         mpTemporalReuseGIPass = ComputePass::create(desc, defines, false);
     }
-    if (!mpSpatialReuseGIPass)
+    if (!mpSpatialReuseGIPass && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kSpatialReuseGIPassFilename).csEntry("main");
         mpSpatialReuseGIPass = ComputePass::create(desc, defines, false);
     }
-    if (!mpShadingIndirect)
+    if (!mpShadingIndirect && mReSTIRParams.mode != Mode::DecoupledPipeline)
     {
         Program::Desc desc = baseDesc;
         desc.addShaderLibrary(kShadingIndirectPassFilename).csEntry("main");
@@ -1047,7 +1045,7 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
         mpLightTiles = Buffer::createStructured(sizeof(uint4) * 2, elementCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
-    if (!mpDirectLightSamples || mpDirectLightSamples->getElementCount() < pixelCount)
+    if (mReSTIRParams.mode != Mode::DecoupledPipeline && (!mpDirectLightSamples || mpDirectLightSamples->getElementCount() < pixelCount))
     {
         mpDirectLightSamples = Buffer::createStructured(sizeof(uint4), pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }

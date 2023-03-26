@@ -128,6 +128,8 @@ struct DecoupledPipelinePass
             // INITIAL RIS -------------------------------------------------------------------------------------------
             Reservoir currentReservoir;
 
+            uint bufferIndex = getBufferIndex(pixel, gFrameDim);
+
             const float3 viewVec = -normalize(primaryRayDir);
 
 			// Create BSDF instance at shading point.
@@ -135,7 +137,7 @@ struct DecoupledPipelinePass
 
             // Create surface data from the shading data and bsdf.
             SurfaceData surfaceData = SurfaceData::create(sd, bsdf, primaryRayOrigin);
-            gSurfaceData[getBufferIndex(pixel, gFrameDim)] = surfaceData.pack();
+            gSurfaceData[bufferIndex] = surfaceData.pack();
 
 			// Compute ray origin for new rays spawned from the G-buffer.
 			float3 rayOrigin =  sd.computeNewRayOrigin();
@@ -384,7 +386,7 @@ struct DecoupledPipelinePass
 
                 outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
             }
-            gReservoirs[getBufferIndex(pixel, gFrameDim)] = outputReservoir.pack();
+            gReservoirs[bufferIndex] = outputReservoir.pack();
 
             // SHADING -------------------------------------------------------------------------------------------
 

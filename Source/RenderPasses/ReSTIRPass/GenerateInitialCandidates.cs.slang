@@ -251,7 +251,7 @@ struct GenerateInitialCandidatesPass
 
         gReservoirs[getBufferIndex(pixel, gFrameDim)] = outputReservoir.pack();
 
-        gDebug[pixel] = float4(0, 0, 0, 1);
+        // gDebug[pixel] = float4(0, 0, 0, 1);
 
 #if USE_CHECKERBOARDING
         gReservoirs[getBufferIndex(couplePixel, gFrameDim)] = outputReservoir.pack();

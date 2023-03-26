@@ -128,7 +128,7 @@ struct ShadePass
 			let bsdf = gScene.materials.getBSDF(sd, lod);
 			let bsdfProperties = bsdf.getProperties(sd);
 
-            albedo = bsdfProperties.diffuseReflectionAlbedo + bsdfProperties.specularReflectionAlbedo;
+            albedo = clamp(bsdfProperties.diffuseReflectionAlbedo + bsdfProperties.specularReflectionAlbedo, 0.f, 1.f);
             color += bsdfProperties.emission;
 
             // Create sample generator.

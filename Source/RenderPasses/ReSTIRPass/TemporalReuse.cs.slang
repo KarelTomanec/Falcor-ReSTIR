@@ -98,6 +98,8 @@ struct TemporalReusePass
         const float3 primaryRayDir = getPrimaryRayDir(pixel, gFrameDim, gScene.camera);
         const float3 viewVec = -normalize(primaryRayDir);
 
+        // gDebug[pixel] = float4(gPrevNormalDepth[bufferIndex], 1);
+
         // Reproject the pixel position.
         uint2 reprojPos = uint2(float2(pixel) + gMotionVectors[pixel] * gFrameDim + sampleNext2D(sg));
         uint2 prevPixel = reprojPos;
@@ -123,7 +125,7 @@ struct TemporalReusePass
             if (any(prevPixel >= gFrameDim) || any(prevPixel < 0))
                 continue;
 
-            NormalDepth prevNormalDepth = NormalDepth::unpack(gPrevNormalDepth[bufferIndex]);
+            NormalDepth prevNormalDepth = NormalDepth::unpack(gPrevNormalDepth[getBufferIndex(prevPixel, gFrameDim)]);
             if (!prevNormalDepth.isValid())
                 return;
 

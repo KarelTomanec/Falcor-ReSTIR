@@ -98,7 +98,7 @@ RWTexture2D<float4> gDebug;
 
 static const uint kMaxBounces = 1; // MAX_BOUNCES;
 static const bool kComputeDirect = true; // COMPUTE_DIRECT;
-static const bool kUseImportanceSampling = true; // USE_IMPORTANCE_SAMPLING;
+static const bool kUseImportanceSampling = false; // USE_IMPORTANCE_SAMPLING;
 static const bool kUseAnalyticLights = false;    // USE_ANALYTIC_LIGHTS;
 static const bool kUseEmissiveLights = true;     // USE_EMISSIVE_LIGHTS;
 static const bool kUseEnvLight = true; // USE_ENV_LIGHT;

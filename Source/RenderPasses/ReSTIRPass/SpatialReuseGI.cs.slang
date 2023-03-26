@@ -65,6 +65,18 @@ struct SpatialReuseGIPass
     // Debug:
     RWTexture2D<float4> gDebug;
 
+    static const float FLT_LARGE = 1e20f;
+
+    bool evalSegmentVisibility(float3 pos, float3 endPoint)
+    {
+        float3 offset = endPoint - pos;
+        float tMax = length(offset);
+        float3 dir = offset / tMax;
+        const Ray ray = Ray(pos, dir, 0.001f, 0.999 * tMax);
+        SceneRayQuery<1> sceneRayQuery;
+        return sceneRayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
+    }
+
 	void execute(const uint2 pixel)
 	{
 	    if (any(pixel >= gFrameDim)) return;
@@ -89,7 +101,8 @@ struct SpatialReuseGIPass
 
         // Get pixel Data for the current pixel.
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-        if (!surfaceData.isValid()) return;
+        if (!surfaceData.isValid())
+            return;
 
         SampleGI currLightSample = currentReservoir.sample;
         float currReservoirTargetPDF = luminance(currLightSample.Le);
@@ -102,58 +115,72 @@ struct SpatialReuseGIPass
 		[unroll]
 		for(int i = 0; i < 5; i++)
 		{
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 0.1f * gFrameDim.x);
-            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 300.0f);
+            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 0.1f * gFrameDim.x);
+            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 300.0f);
+            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 30.0f);
 
 			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
+			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                continue;
 
 			uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
 			ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f) continue;
+            if (neighborReservoir.M == 0.f)
+                continue;
 
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-            if (!neighborSurfaceData.isValid()) continue;
+            if (!neighborSurfaceData.isValid())
+                continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth))
+                continue;
 
             SampleGI neighborLightSample = neighborReservoir.sample;
             float neighborReservoirTargetPDF = luminance(neighborLightSample.Le);
 
-            // Calculate Jacobian determinant
-            float3 q2q1 = neighborSurfaceData.position - neighborLightSample.samplePoint;
-            float3 q2r1 = surfaceData.position - neighborLightSample.samplePoint;
+            float3 r1q2 = neighborLightSample.samplePoint - surfaceData.position;
+            float3 q1q2 = neighborLightSample.samplePoint - neighborSurfaceData.position;
+
             // Discard back-face samples
-            if (dot(surfaceData.normal, -normalize(q2r1)) <= 0.f) continue;
-
-            float cosPhiR = dot(normalize(q2r1), neighborLightSample.sampleNormal);
-            float cosPhiQ = dot(normalize(q2q1), neighborLightSample.sampleNormal);
-
-            if (cosPhiR <= 0.f || cosPhiQ <= 0.f) continue;
-
-            float invJ = (cosPhiQ * dot(q2r1, q2r1)) / (cosPhiR * dot(q2q1, q2q1));
-            neighborReservoirTargetPDF *= invJ;
-
-            // Test visibility by tracing a shadow ray.
-            // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
-            SceneRayQuery<1> rayQuery;
-            const Ray ray = Ray(rayOrigin, normalize(-q2r1), 0.0f, length(q2r1) - kShadowRayEpsilon);
-            bool visible = rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
-            if (!visible) {
+            if (dot(surfaceData.normal, r1q2) <= 0.f)
                 neighborReservoirTargetPDF = 0.f;
-            }
-            bool selected = outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 
-            if (visible && selected) {
+            float r1q2LenSq = dot(r1q2, r1q2);
+            float q1q2LenSq = dot(q1q2, q1q2);
+
+            r1q2 = normalize(r1q2);
+            q1q2 = normalize(q1q2);
+
+            float cosA = dot(surfaceData.normal, r1q2);
+            float cosB = dot(neighborSurfaceData.normal, q1q2);
+            float cosPhiA = -dot(r1q2, neighborLightSample.sampleNormal);
+            float cosPhiB = -dot(q1q2, neighborLightSample.sampleNormal);
+            if (cosB <= 0.f || cosPhiB <= 0.f)
+                continue;
+
+            if (cosA <= 0.f || cosPhiA <= 0.f || r1q2LenSq <= 0.f || q1q2LenSq <= 0.f)
+                neighborReservoirTargetPDF = 0.f;
+
+            // Evaluate visibility
+            bool isVisible = evalSegmentVisibility(rayOrigin, neighborLightSample.samplePoint);
+            if (!isVisible)
+                neighborReservoirTargetPDF = 0.f;
+
+            // Calculate Jacobian determinant
+            float jacobian = r1q2LenSq * cosPhiB <= 0.f ? 0.f : clamp(q1q2LenSq * cosPhiA / (r1q2LenSq * cosPhiB), 0.f, FLT_LARGE);
+            neighborReservoirTargetPDF *= jacobian * neighborReservoir.M;
+
+            bool isSelected = outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
+
+            if (isVisible && isSelected) {
                 Z += neighborReservoir.M;
-                // gDebug[pixel] = float4(1, 0, 0, 1);
             }
-
-		}
-
+        }
+        // BIAS?????
         // outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
+        // outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (Z * outputReservoir.W) : 0.f;
         outputReservoir.M = min(outputReservoir.M, 500);
 		// Store reservoir
 		gOutReservoirsGI[bufferIndex] = outputReservoir.pack();
