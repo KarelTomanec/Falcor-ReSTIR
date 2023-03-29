@@ -148,7 +148,7 @@ private:
         uint32_t    analyticLightCandidateCount = 0;
 
         BiasCorrection biasCorrection = BiasCorrection::Off;
-        float       normalThreshold = 0.5f;
+        float       normalThreshold = 0.9f;
         float       depthThreshold = 0.1f;
 
         uint32_t    spatialIterationCount = 1;
