@@ -104,7 +104,7 @@ namespace
         { (uint32_t)ReSTIRPass::Mode::TemporalResampling, "Temporal resampling only" },
         { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResampling, "Spatiotemporal resampling" },
         { (uint32_t)ReSTIRPass::Mode::DecoupledPipeline, "Decoupled pipeline" },
-        { (uint32_t)ReSTIRPass::Mode::ReSTIRGI, "ReSTIRDI + ReSTIRGI" },
+        { (uint32_t)ReSTIRPass::Mode::ReSTIRGI, "ReSTIRDI + ReSTIRGI (in progress)" },
     };
 
     Gui::DropdownList kBiasCorrectionList =
@@ -211,12 +211,6 @@ void ReSTIRPass::setFrameDim(const uint2 frameDim)
     auto prevFrameDim = frameDim;
 
     mFrameDim = frameDim;
-
-    // TODO:
-    //if (mParams.frameDim.x > kMaxFrameDimension || mParams.frameDim.y > kMaxFrameDimension)
-    //{
-    //    throw RuntimeError("Frame dimensions up to {} pixels width/height are supported.", kMaxFrameDimension);
-    //}
 
     if (mFrameDim != prevFrameDim)
     {
@@ -351,13 +345,13 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
     {
 
         dirty |= group.var("Light tile count", mReSTIRParams.lightTileCount, kMinLightTileCount, kMaxLightTileCount);
-        group.tooltip("");
+        group.tooltip("The number of light tiles created in the presampling phase.");
 
         dirty |= group.var("Light tile size", mReSTIRParams.lightTileSize, kMinLightTileSize, kMaxLightTileSize);
-        group.tooltip("");
+        group.tooltip("The size of single light tile created in the presampling phase.");
 
         dirty |= group.dropdown("Light tile screen size", kLightTileScreenSize, reinterpret_cast<uint32_t&>(mReSTIRParams.lightTileScreenSize));
-        group.tooltip("");
+        group.tooltip("The size of screen tile in pixels which form a group accessing the same light tile.");
     }
 
     if (auto group = widget.group("Initial resampling", false))
@@ -372,7 +366,7 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
         group.tooltip("Number of initial analytic light candidate samples.");
 
         dirty |= group.checkbox("Test initial candidate visibility", mReSTIRParams.testInitialSampleVisibility);
-        group.tooltip("");
+        group.tooltip("Performs a visibility test for the selected initial candidate.");
 
         dirty |= group.checkbox("Use Checkerboard Rendering", mReSTIRParams.useCheckerboarding);
         group.tooltip("");
@@ -398,12 +392,12 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
             group.tooltip("Number of neighbor samples considered for resampling.");
 
             dirty |= group.var("Sample radius", mReSTIRParams.spatialReuseSampleRadius, kMinSpatialReuseSampleRadius, kMaxSpatialReuseSampleRadius);
-            group.tooltip("Screen-space radius for sample resampling [pixels].");
+            group.tooltip("Screen-space radius for neighbor selection in pixels.");
 
             if (mReSTIRParams.mode == Mode::DecoupledPipeline)
             {
                 dirty |= group.var("Visibility test threshold", mReSTIRParams.spatialVisibilityThreshold, 0.f, mReSTIRParams.spatialReuseSampleRadius);
-                group.tooltip("TODO");
+                group.tooltip("Distance from the pixel after which the visibility test is performed.");
             }
         }
     }
@@ -413,7 +407,7 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
         if (auto group = widget.group("Resampling options", false))
         {
             dirty |= group.dropdown("Bias correction", kBiasCorrectionList, reinterpret_cast<uint32_t&>(mReSTIRParams.biasCorrection));
-            group.tooltip("");
+            group.tooltip("Type of correction to prevent the occurrence of bias.");
 
             dirty |= group.var("Depth threshold", mReSTIRParams.depthThreshold, 0.f, 1.f);
             group.tooltip("Depth threshold for sample reuse.");
