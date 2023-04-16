@@ -100,7 +100,8 @@ struct TemporalReuseGIPass
 
         // Get surface data for the current pixel.
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-        if (!surfaceData.isValid()) return;
+        if (!surfaceData.isValid())
+            return;
 
         // ShadingData sdPrev;
         SurfaceData prevSurfaceData;
@@ -120,21 +121,24 @@ struct TemporalReuseGIPass
             prevPixel = reprojPos + offset;
 
             // Test if previous pixel position is out of bounds.
-            if (any(prevPixel >= gFrameDim) || any(prevPixel < 0)) continue;
+            if (any(prevPixel >= gFrameDim) || any(prevPixel < 0))
+                continue;
 
             // Load shading data for the previous pixel.
             prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
-            if (!prevSurfaceData.isValid()) continue;
+            if (!prevSurfaceData.isValid())
+                continue;
 
             // Compare the difference in camera distance, and the angle between normals.
-            if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth)) continue;
+            if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth))
+                continue;
 
             neighborFound = true;
             break;
 		}
 
-        if (!neighborFound) return;
-
+        if (!neighborFound)
+            return;
 
         // Get index for the structured buffer access for the previous pixel.
         uint prevBufferIndex = getBufferIndex(prevPixel, gFrameDim);

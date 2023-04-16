@@ -80,7 +80,7 @@ struct DecoupledPipelinePass
     static const uint kAnalyticLightCandidateCount = ANALYTIC_LIGHT_CANDIDATE_COUNT;
 
     static const float kMaxOffset = 5.f;
-    static const uint kAttemptCount = 5;
+    static const uint kAttemptCount = 1;
 
     static const float kSpatialVisibilityThreshold = SPATIAL_VISIBILITY_THRESHOLD;
 
@@ -114,7 +114,6 @@ struct DecoupledPipelinePass
 
         float3 color = float3(0.f);
         float3 albedo = float3(0.f);
-        // gDebug[pixel] = float4(0, 0, 0, 1);
 
         ShadingData sd;
         let lod = ExplicitLodTextureSampler(0.f);
@@ -260,7 +259,7 @@ struct DecoupledPipelinePass
 
 
             // Set history limit for the temporal reuse.
-            uint historyLimit = TEMPORAL_MAX_HISTORY_LENGTH * currentReservoir.M / 8;
+            uint historyLimit = TEMPORAL_MAX_HISTORY_LENGTH * currentReservoir.M;
             // Reproject the pixel position.
             uint2 reprojPos = uint2(float2(pixel) + gMotionVectors[pixel] * gFrameDim + sampleNext2D(sg));
 
@@ -302,21 +301,6 @@ struct DecoupledPipelinePass
 
             // Clamp the previous frame's M.
             prevReservoir.M = min(historyLimit, prevReservoir.M);
-
-            // if (temporalNeighborFound) {
-
-            //     {
-            //         // Test visibility by tracing a shadow ray.
-            //         // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
-            //         SceneRayQuery<1> rayQuery;
-            //         const LightSample lightSample = gLightSampler.getLightSample(prevReservoir.sample);
-            //         const Ray ray = Ray(rayOrigin, lightSample.getDirToSample(rayOrigin), 0.0f, lightSample.getDistanceToSample(rayOrigin) - kShadowRayEpsilon);
-            //         bool visible = rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
-            //         if (!visible) {
-            //             prevReservoir.W = 0.f;
-            //         }
-            //     }
-            // }
 
             // SPATIAL SAMPLE -------------------------------------------------------------------------------------------
             Reservoir spatioTemporalReservoir;
@@ -365,7 +349,6 @@ struct DecoupledPipelinePass
 
 
             // COMBINE RESERVOIRS
-
             Reservoir outputReservoir;
             {
                 if (temporalNeighborFound) {
@@ -401,7 +384,6 @@ struct DecoupledPipelinePass
                 Reservoir reservoir = reservoirs[i];
                 LightSample lightSample = gLightSampler.getLightSample(reservoir.sample);
                 float3 dirToLight;
-                float distToLight;
                 float3 Li;
                 switch (lightSample.lightType)
                 {
@@ -412,14 +394,12 @@ struct DecoupledPipelinePass
                         dirToLight = normalize(originToLight);
                         float distSqr = max(FLT_MIN, dot(originToLight, originToLight));
                         float geometryFactor = max(0.f, dot(lightSample.normal, -dirToLight)) / distSqr;
-                        distToLight = sqrt(distSqr);
                         Li = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W * geometryFactor;
                         break;
                     }
                     case LightSample::Type::DistantLight:
                     {
                         dirToLight = lightSample.posDir;
-                        distToLight = lightSample.getDistanceToSample(rayOrigin);
                         Li = gLightSampler.getLightSampleRadiance(reservoir.sample) * reservoir.W;
                         break;
                     }

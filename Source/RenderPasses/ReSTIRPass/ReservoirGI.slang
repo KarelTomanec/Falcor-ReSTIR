@@ -94,22 +94,24 @@ struct ReservoirGI
 		return isSelected;
 	}
 
-	[mutating]
-	bool update<S : ISampleGenerator>(inout ReservoirGI reservoir, const float targetPDF, inout S sg)
-	{
+    [mutating]
+    bool update<S : ISampleGenerator>(inout ReservoirGI reservoir, const float targetPDF, inout S sg)
+    {
         float weight = targetPDF * reservoir.W * reservoir.M;
         this.weightSum += weight;
-		this.M += reservoir.M;
+        this.M += reservoir.M;
 
         bool isSelected = sampleNext1D(sg) * this.weightSum < weight;
 
-		if(isSelected) {
-			this.sample = reservoir.sample;
-			this.W = targetPDF;
-		}
+        if (isSelected) {
+            this.sample = reservoir.sample;
+            this.W = targetPDF;
+        }
 
-		return isSelected;
-	}
+        return isSelected;
+    }
+
+
 
     static ReservoirGI unpack(const PackedReservoirGI packedReservoir)
     {

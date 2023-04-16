@@ -228,9 +228,7 @@ struct SpatialReusePass
             neighborReservoirTargetPDF *= surfaceData.evalVisibility(neighborLightSample);
 #endif
             if (outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg))
-			{
 				selectedSample = i;
-			}
 		}
 
         float pSum = 0.f;
@@ -269,7 +267,7 @@ struct SpatialReusePass
 
             float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec);
 #if UNBIASED_RAYTRACED
-            neighborPixelTargetPDF *= neighborSurfaceData.evalVisibility(outputLightSample);
+            // neighborPixelTargetPDF *= neighborSurfaceData.evalVisibility(outputLightSample);
 #endif
             pSum += neighborPixelTargetPDF * neighborReservoir.M;
 			if(selectedSample == i) {

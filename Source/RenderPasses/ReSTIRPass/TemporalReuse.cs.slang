@@ -76,7 +76,7 @@ struct TemporalReusePass
     RWTexture2D<float4> gDebug;
 
     static const float kMaxOffset = 5.f;
-    static const uint kAttemptCount = 5;
+    static const uint kAttemptCount = 1;
 
     void execute(const uint2 pixel)
 	{

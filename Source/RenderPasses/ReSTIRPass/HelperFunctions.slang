@@ -11,12 +11,17 @@ import Utils.Math.BitTricks;
 
 static const float kShadowRayEpsilon = 0.0001f;
 
-static const float normalThreshold = NORMAL_THRESHOLD;
-static const float depthThreshold = DEPTH_THRESHOLD;
+static const float kNormalThreshold = NORMAL_THRESHOLD;
+static const float kDepthThreshold = DEPTH_THRESHOLD;
 
 bool isValidNeighbor(float3 norm, float3 neighborNorm, float depth, float neighborDepth)
 {
-	return (dot(norm, neighborNorm) >= normalThreshold) && abs(depth - neighborDepth) <= depthThreshold * max(depth, neighborDepth);
+    return (dot(norm, neighborNorm) >= kNormalThreshold) && abs(depth - neighborDepth) <= kDepthThreshold * max(depth, neighborDepth);
+}
+
+bool isValidNeighbor(float3 norm, float3 neighborNorm, float depth, float neighborDepth, float normalThreshold, float depthThreshold)
+{
+    return (dot(norm, neighborNorm) >= normalThreshold) && abs(depth - neighborDepth) <= depthThreshold * max(depth, neighborDepth);
 }
 
 /** Helper for setting up the ShadingData struct based on loaded data.

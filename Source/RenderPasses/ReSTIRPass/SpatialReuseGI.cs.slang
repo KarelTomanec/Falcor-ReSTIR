@@ -66,6 +66,7 @@ struct SpatialReuseGIPass
     RWTexture2D<float4> gDebug;
 
     static const float FLT_LARGE = 1e20f;
+    static const uint kNeighborCount = 1;
 
     bool evalSegmentVisibility(float3 pos, float3 endPoint)
     {
@@ -107,16 +108,14 @@ struct SpatialReuseGIPass
         SampleGI currLightSample = currentReservoir.sample;
         float currReservoirTargetPDF = luminance(currLightSample.Le);
 
-        float Z = 0.f;
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
-        Z += outputReservoir.M;
 
         float3 rayOrigin = computeRayOrigin(surfaceData.position, surfaceData.normal);
-		[unroll]
-		for(int i = 0; i < 5; i++)
+        [unroll]
+        for (int i = 0; i < kNeighborCount; i++)
 		{
-            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 0.1f * gFrameDim.x);
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 300.0f);
+            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 0.1f * gFrameDim.x);
+            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 300.0f);
             // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 30.0f);
 
 			// Discard pixel if out of bounds
@@ -133,7 +132,7 @@ struct SpatialReuseGIPass
             if (!neighborSurfaceData.isValid())
                 continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth))
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, 0.9f, 0.05f))
                 continue;
 
             SampleGI neighborLightSample = neighborReservoir.sample;
@@ -169,21 +168,16 @@ struct SpatialReuseGIPass
 
             // Calculate Jacobian determinant
             float jacobian = r1q2LenSq * cosPhiB <= 0.f ? 0.f : clamp(q1q2LenSq * cosPhiA / (r1q2LenSq * cosPhiB), 0.f, FLT_LARGE);
-            neighborReservoirTargetPDF *= jacobian * neighborReservoir.M;
+            neighborReservoirTargetPDF *= jacobian;
 
             bool isSelected = outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
-
-            if (isVisible && isSelected) {
-                Z += neighborReservoir.M;
-            }
         }
         // BIAS?????
-        // outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
-        outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
-        // outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (Z * outputReservoir.W) : 0.f;
-        outputReservoir.M = min(outputReservoir.M, 500);
+        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
+        // outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
+        outputReservoir.M = min(outputReservoir.M, 100);
 		// Store reservoir
-		gOutReservoirsGI[bufferIndex] = outputReservoir.pack();
+        gOutReservoirsGI[bufferIndex] = outputReservoir.pack();
 	}
 }
 
