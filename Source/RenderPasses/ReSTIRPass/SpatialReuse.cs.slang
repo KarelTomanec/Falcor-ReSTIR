@@ -70,7 +70,8 @@ struct SpatialReusePass
 
 	void execute(const uint2 pixel)
 	{
-	    if (any(pixel >= gFrameDim)) return;
+	    if (any(pixel >= gFrameDim))
+            return;
 
 		// Get index for the structured buffer access.
 		uint bufferIndex = getBufferIndex(pixel, gFrameDim);
@@ -98,9 +99,6 @@ struct SpatialReusePass
 
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
         float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
-#if UNBIASED_RAYTRACED
-        // currReservoirTargetPDF *= surfaceData.evalVisibility(currLightSample);
-#endif
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
 #if BIASED
@@ -110,19 +108,21 @@ struct SpatialReusePass
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg);
 
 			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
+			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                continue;
 
 			uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
 			Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f) continue;
-            // neighborReservoir.M = min(neighborReservoir.M, 100);
+            if (neighborReservoir.M == 0.f)
+                continue;
 
             NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
             if (!neighborNormalDepth.isValid())
                 return;
 
-            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
+                continue;
 
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
@@ -141,18 +141,21 @@ struct SpatialReusePass
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1);
 
 			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
+			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                continue;
 
             uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
             Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f) continue;
+            if (neighborReservoir.M == 0.f)
+                continue;
 
             NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
             if (!neighborNormalDepth.isValid())
                 return;
 
-            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
+                continue;
 
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
@@ -174,18 +177,21 @@ struct SpatialReusePass
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
 
 			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
+			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                continue;
 
             uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
             Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f) continue;
+            if (neighborReservoir.M == 0.f)
+                continue;
 
             NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
             if (!neighborNormalDepth.isValid())
                 return;
 
-            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
+                continue;
 
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
@@ -207,75 +213,81 @@ struct SpatialReusePass
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1);
 
 			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
+			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                continue;
 
             uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
             Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f) continue;
+            if (neighborReservoir.M == 0.f)
+                continue;
 
             NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
             if (!neighborNormalDepth.isValid())
                 return;
 
-            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
+                continue;
 
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-#if UNBIASED_RAYTRACED
-            neighborReservoirTargetPDF *= surfaceData.evalVisibility(neighborLightSample);
-#endif
+
             if (outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg))
 				selectedSample = i;
 		}
 
-        float pSum = 0.f;
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
         float currPixelTargetPDF = surfaceData.evalTargetPDF(outputLightSample, viewVec);
+
+        float visibleSelected = 1.f;
 #if UNBIASED_RAYTRACED
-        currPixelTargetPDF *= surfaceData.evalVisibility(outputLightSample);
+        visibleSelected = surfaceData.evalVisibility(outputLightSample);
+        currPixelTargetPDF *= visibleSelected;
 #endif
-        pSum += currPixelTargetPDF * currentReservoir.M;
-		float pStar;
+        float pSum = visibleSelected * currentReservoir.M * outputReservoir.W;
+		float pStar = 0.f;
 		if(selectedSample == -1)
-		{
-			pStar = currPixelTargetPDF;
-		}
+            pStar = currPixelTargetPDF;
 
-		[unroll]
-        for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+        if (visibleSelected)
         {
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
+            [unroll]
+            for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+            {
+                uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
 
-			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
+                // Discard pixel if out of bounds
+                if (any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                    continue;
 
-            uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
-            Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
+                uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
+                Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f) continue;
+                if (neighborReservoir.M == 0.f)
+                    continue;
 
-            NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
-            if (!neighborNormalDepth.isValid())
-                return;
+                NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
+                if (!neighborNormalDepth.isValid())
+                    return;
 
-            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth)) continue;
+                if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
+                    continue;
 
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
+                SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
-            float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec);
+                float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec);
 #if UNBIASED_RAYTRACED
-            // neighborPixelTargetPDF *= neighborSurfaceData.evalVisibility(outputLightSample);
+                neighborPixelTargetPDF *= neighborSurfaceData.evalVisibility(outputLightSample);
 #endif
-            pSum += neighborPixelTargetPDF * neighborReservoir.M;
-			if(selectedSample == i) {
-				pStar = neighborPixelTargetPDF;
-			}
-		}
+                pSum += neighborPixelTargetPDF * neighborReservoir.M;
+                if (selectedSample == i)
+                    pStar = neighborPixelTargetPDF;
+            }
+        }
 
-        float m = pStar / pSum;
+        float m = pSum > 0.f ? pStar / pSum : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #endif
 		// Store reservoir

@@ -80,7 +80,8 @@ struct TemporalReusePass
 
     void execute(const uint2 pixel)
 	{
-	    if (any(pixel >= gFrameDim)) return;
+	    if (any(pixel >= gFrameDim))
+            return;
 
 		// Get index for the structured buffer access.
 		uint bufferIndex = getBufferIndex(pixel, gFrameDim);
@@ -130,7 +131,8 @@ struct TemporalReusePass
                 return;
 
             // Compare the difference in camera distance, and the angle between normals.
-            if (!isValidNeighbor(normalDepth.normal, prevNormalDepth.normal, normalDepth.depth, prevNormalDepth.depth)) continue;
+            if (!isValidNeighbor(normalDepth.normal, prevNormalDepth.normal, normalDepth.depth, prevNormalDepth.depth))
+                continue;
 
             neighborFound = true;
             break;
@@ -200,31 +202,23 @@ struct TemporalReusePass
 		// Unbiased combination of multiple reservoirs using MIS (Algorithm 1 from the original ReSTIR paper's supplemental document):
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
         float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
-#if UNBIASED_RAYTRACED
-        currReservoirTargetPDF *= surfaceData.evalVisibility(currLightSample);
-#endif
+
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
         LightSample prevLightSample = gLightSampler.getLightSample(prevReservoir.sample);
         float prevReservoirTargetPDF = surfaceData.evalTargetPDF(prevLightSample, viewVec);
-#if UNBIASED_RAYTRACED
-        prevReservoirTargetPDF *= surfaceData.evalVisibility(prevLightSample);
-#endif
+
         bool neighborContributed = outputReservoir.update(prevReservoir, prevReservoirTargetPDF, sg);
 
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
 		float pSum = 0.f;
 
         float currPixelTargetPDF = surfaceData.evalTargetPDF(outputLightSample, viewVec);
-#if UNBIASED_RAYTRACED
-        currPixelTargetPDF *= surfaceData.evalVisibility(outputLightSample);
-#endif
+
         pSum += currPixelTargetPDF * currentReservoir.M;
 
         float prevPixelTargetPDF = prevSurfaceData.evalTargetPDF(outputLightSample, viewVec);
-#if UNBIASED_RAYTRACED
-        prevPixelTargetPDF *= surfaceData.evalVisibility(outputLightSample);
-#endif
+
         pSum += prevPixelTargetPDF * prevReservoir.M;
 
         float m = pSum > 0.f ? ((neighborContributed ? prevPixelTargetPDF : currPixelTargetPDF) / pSum) : 0.f;
