@@ -181,7 +181,7 @@ struct SurfaceData
         float3 dirToSample = lightSample.getDirToSample(rayOrigin);
         float distToSample = lightSample.getDistanceToSample(rayOrigin);
         SceneRayQuery<1> rayQuery;
-        const Ray ray = Ray(rayOrigin, dirToSample, 0.0f, distToSample - kShadowRayEpsilon);
+        const Ray ray = Ray(rayOrigin, dirToSample, 0.0001f, distToSample - kShadowRayEpsilon);
 		return rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
 	}
 
