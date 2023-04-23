@@ -101,6 +101,8 @@ struct SpatialReusePass
         float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
+        uint validNeighborFlags = 0;
+
 #if BIASED
 		[unroll]
 		for(int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
@@ -162,6 +164,8 @@ struct SpatialReusePass
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
+
+            validNeighborFlags |= 1 << i;
 		}
 
         float Z = 0.f;
@@ -174,31 +178,18 @@ struct SpatialReusePass
 		[unroll]
         for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
-
-			// Discard pixel if out of bounds
-			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+            if (!(validNeighborFlags & 1 << i))
                 continue;
+
+            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
 
             uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
             Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f)
-                continue;
-
-            NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
-            if (!neighborNormalDepth.isValid())
-                return;
-
-            if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
-                continue;
-
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             if (neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec))
-            {
                 Z += neighborReservoir.M;
-			}
         }
         float m = 1.f / Z;
         outputReservoir.W = (outputReservoir.W > 0.f && !isinf(m)) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
@@ -235,7 +226,9 @@ struct SpatialReusePass
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
 
             if (outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg))
-				selectedSample = i;
+                selectedSample = i;
+
+            validNeighborFlags |= 1 << i;
 		}
 
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
@@ -256,24 +249,13 @@ struct SpatialReusePass
             [unroll]
             for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
             {
-                uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
-
-                // Discard pixel if out of bounds
-                if (any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                if (!(validNeighborFlags & 1 << i))
                     continue;
+
+                uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
 
                 uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
                 Reservoir neighborReservoir = Reservoir::unpack(gReservoirs[neighborBufferIndex]);
-
-                if (neighborReservoir.M == 0.f)
-                    continue;
-
-                NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
-                if (!neighborNormalDepth.isValid())
-                    return;
-
-                if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
-                    continue;
 
                 SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
