@@ -80,8 +80,9 @@ struct SpatialReuseGIPass
 
 	void execute(const uint2 pixel)
 	{
-	    if (any(pixel >= gFrameDim)) return;
+        if (any(pixel >= gFrameDim)) return;
 
+        gDebug[pixel] = float4(0, 0, 0, 1);
 		// Get index for the structured buffer access.
 		uint bufferIndex = getBufferIndex(pixel, gFrameDim);
 
@@ -110,9 +111,7 @@ struct SpatialReuseGIPass
 
         bool tmpSelected = outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
-        float Z = 0.f;
-        if (tmpSelected && currReservoirTargetPDF > 0.f)
-            Z += currentReservoir.M;
+        float Z = currentReservoir.M;
 
         float3 rayOrigin = computeRayOrigin(surfaceData.position, surfaceData.normal);
         [unroll]
@@ -126,8 +125,8 @@ struct SpatialReuseGIPass
 			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
                 continue;
 
-			uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
-			ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
+            uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
+            ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
 
             if (neighborReservoir.M == 0.f)
                 continue;
@@ -162,8 +161,11 @@ struct SpatialReuseGIPass
             if (cosB <= 0.f || cosPhiB <= 0.f)
                 continue;
 
-            if (cosA <= 0.f || cosPhiA <= 0.f || r1q2LenSq <= 0.f || q1q2LenSq <= 0.f)
+            if (cosA <= 0.f || cosPhiA <= 0.f || r1q2LenSq <= 0.f || q1q2LenSq <= 0.f) {
+
                 neighborReservoirTargetPDF = 0.f;
+                gDebug[pixel] = float4(1, 0, 0, 1);
+            }
 
             // Evaluate visibility
             bool isVisible = evalSegmentVisibility(rayOrigin, neighborLightSample.samplePoint);
@@ -173,14 +175,14 @@ struct SpatialReuseGIPass
             // Calculate Jacobian determinant
             float jacobian = r1q2LenSq * cosPhiB <= 0.f ? 0.f : clamp(q1q2LenSq * cosPhiA / (r1q2LenSq * cosPhiB), 0.f, FLT_LARGE);
             neighborReservoirTargetPDF *= jacobian;
-            // float jacobian = (abs(cosPhiA) / abs(cosPhiB)) * (q1q2LenSq / r1q2LenSq);
-            // neighborReservoirTargetPDF /= jacobian;
-            // gDebug[pixel] = float4(neighborLightSample., 1);
-
+            // if (neighborReservoirTargetPDF == 0.f)
+            //     gDebug[pixel] = float4(1, 0, 0, 1);
 
             bool isSelected = outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
-            if (isSelected && neighborReservoirTargetPDF > 0.f)
+            if (isSelected && neighborReservoirTargetPDF > 0.f) {
                 Z += neighborReservoir.M;
+                gDebug[pixel] = float4(0, 1, 0, 1);
+            }
         }
         outputReservoir.W = outputReservoir.M * outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
         // outputReservoir.W = outputReservoir.W * Z > 0.f ? outputReservoir.weightSum / (Z * outputReservoir.W) : 0.f;

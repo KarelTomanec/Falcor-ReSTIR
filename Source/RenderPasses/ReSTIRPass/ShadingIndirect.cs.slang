@@ -97,9 +97,12 @@ struct ShadePass
                 valid = false;
             }
         }
+        float3 col = float3(0.f);
         // gDebug[pixel] = float4(reservoir.W, 0, 0, 1);
         // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
-        return bsdf.eval(sd, dirToLight, sg) * Li * reservoir.W;
+        if (valid)
+            col = bsdf.eval(sd, dirToLight, sg) * Li * reservoir.W;
+        return col;
     }
 
     float3 evalDirectLight(const uint2 pixel, ShadingData sd, const IBSDF bsdf, inout TinyUniformSampleGenerator sg)
@@ -167,7 +170,7 @@ struct ShadePass
 
             float3 directLight = evalDirectLight(pixel, sd, bsdf, sg);
             float3 indirectLight = evalIndirectLight(pixel, sd, bsdf, sg);
-            color += directLight;
+            // color += directLight;
             color += indirectLight;
 		} else {
 			// Background pixel.

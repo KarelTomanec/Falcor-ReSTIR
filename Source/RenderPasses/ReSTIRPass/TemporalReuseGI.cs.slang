@@ -86,7 +86,7 @@ struct TemporalReuseGIPass
 
         // Get reservoir with initial candidate samples from the previous pass.
         ReservoirGI currentReservoir = ReservoirGI::unpack(gGIReservoirs[bufferIndex]);
-        // return;
+        return;
 
         // Set history limit for the temporal reuse.
         uint historyLimit = TEMPORAL_MAX_HISTORY_LENGTH * currentReservoir.M;
@@ -158,7 +158,9 @@ struct TemporalReuseGIPass
         float prevTargetPdf = luminance(prevReservoir.sample.Le);
         outputReservoir.update(prevReservoir, prevTargetPdf, sg);
 
-        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
+        // outputReservoir.W = outputReservoir.W  > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
+        outputReservoir.W = outputReservoir.W * outputReservoir.M > 0.f ? outputReservoir.weightSum / ( outputReservoir.M * outputReservoir.W) : 0.f;
+        // outputReservoir.W = outputReservoir.W * Z > 0.f ? outputReservoir.weightSum / (Z * outputReservoir.W) : 0.f;
 
         // Store combined reservoir.
         outputReservoir.M = min(outputReservoir.M, 30);
