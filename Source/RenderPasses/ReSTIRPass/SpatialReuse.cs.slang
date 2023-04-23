@@ -105,7 +105,7 @@ struct SpatialReusePass
 
 #if BIASED
 		[unroll]
-		for(int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+		for(uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
 		{
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg);
 
@@ -138,7 +138,7 @@ struct SpatialReusePass
 		TinyUniformSampleGenerator sg1 = sg;
 		TinyUniformSampleGenerator sg2 = sg;
 		[unroll]
-        for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+        for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1);
 
@@ -165,20 +165,18 @@ struct SpatialReusePass
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 
-            validNeighborFlags |= 1 << i;
+            validNeighborFlags |= 1u << i;
 		}
 
         float Z = 0.f;
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
-        if (surfaceData.evalTargetPDF(outputLightSample, viewVec))
-        {
+        if (outputReservoir.W)
             Z += currentReservoir.M;
-		}
 
 		[unroll]
-        for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+        for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
-            if (!(validNeighborFlags & 1 << i))
+            if (!(validNeighborFlags & 1u << i))
                 continue;
 
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
@@ -199,7 +197,7 @@ struct SpatialReusePass
 		TinyUniformSampleGenerator sg1 = sg;
 		TinyUniformSampleGenerator sg2 = sg;
 		[unroll]
-        for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+        for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1);
 
@@ -228,28 +226,26 @@ struct SpatialReusePass
             if (outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg))
                 selectedSample = i;
 
-            validNeighborFlags |= 1 << i;
+            validNeighborFlags |= 1u << i;
 		}
 
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
-        float currPixelTargetPDF = surfaceData.evalTargetPDF(outputLightSample, viewVec);
 
         float visibleSelected = 1.f;
 #if UNBIASED_RAYTRACED
         visibleSelected = surfaceData.evalVisibility(outputLightSample);
-        currPixelTargetPDF *= visibleSelected;
 #endif
-        float pSum = visibleSelected * currentReservoir.M * outputReservoir.W;
+        float pSum = visibleSelected * outputReservoir.W * currentReservoir.M;
 		float pStar = 0.f;
-		if(selectedSample == -1)
-            pStar = currPixelTargetPDF;
+        if (selectedSample == -1)
+            pStar = visibleSelected * outputReservoir.W;
 
         if (visibleSelected)
         {
             [unroll]
-            for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+            for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
             {
-                if (!(validNeighborFlags & 1 << i))
+                if (!(validNeighborFlags & 1u << i))
                     continue;
 
                 uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);

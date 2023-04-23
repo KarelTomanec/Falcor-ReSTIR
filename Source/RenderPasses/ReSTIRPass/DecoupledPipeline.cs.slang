@@ -110,7 +110,8 @@ struct DecoupledPipelinePass
 
 	void execute(const uint2 pixel)
     {
-        if (any(pixel >= gFrameDim)) return;
+        if (any(pixel >= gFrameDim))
+            return;
 
         float3 color = float3(0.f);
         float3 albedo = float3(0.f);
@@ -273,21 +274,23 @@ struct DecoupledPipelinePass
             {
                 int2 offset = int2(0, 0);
                 if (i > 0) {
-
                     offset.x = int((sampleNext1D(sg) - 0.5) * kMaxOffset);
                     offset.y = int((sampleNext1D(sg) - 0.5) * kMaxOffset);
                 }
                 prevPixel = reprojPos + offset;
 
                 // Test if previous pixel position is out of bounds.
-                if (any(prevPixel >= gFrameDim) || any(prevPixel < 0)) continue;
+                if (any(prevPixel >= gFrameDim) || any(prevPixel < 0))
+                    continue;
 
                 // Load shading data for the previous pixel.
                 prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
-                if (!prevSurfaceData.isValid()) continue;
+                if (!prevSurfaceData.isValid())
+                    continue;
 
                 // Compare the difference in camera distance, and the angle between normals.
-                if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth)) continue;
+                if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth))
+                    continue;
 
                 temporalNeighborFound = true;
                 break;
@@ -308,22 +311,26 @@ struct DecoupledPipelinePass
             float spatialNeighborDistance = 0.f;
 
             [unroll]
-            for (int i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
+            for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
             {
                 uint2 neighborPixel = getRandomNeighborPixel(pixel, sg);
 
                 // Discard pixel if out of bounds
-                if (any(neighborPixel >= gFrameDim) || any(neighborPixel < 0)) continue;
+                if (any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
+                    continue;
 
                 uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
                 Reservoir spatialReservoir = Reservoir::unpack(gPrevReservoirs[neighborBufferIndex]);
 
-                if (spatialReservoir.M == 0.f) continue;
+                if (spatialReservoir.M == 0.f)
+                    continue;
 
                 SurfaceData neighborSurfaceData = SurfaceData::unpack(gPrevSurfaceData[neighborBufferIndex]);
-                if (!neighborSurfaceData.isValid()) continue;
+                if (!neighborSurfaceData.isValid())
+                    continue;
 
-                if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth)) continue;
+                if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth))
+                    continue;
                 spatialReservoir.M = min(historyLimit, spatialReservoir.M);
 
                 LightSample neighborLightSample = gLightSampler.getLightSample(spatialReservoir.sample);
@@ -408,9 +415,7 @@ struct DecoupledPipelinePass
                 bool valid = true;
 
                 if (reservoir.W == 0.0f)
-                {
                     valid = false;
-                }
 
                 float3 diffuse = {};
                 float3 specular = {};
