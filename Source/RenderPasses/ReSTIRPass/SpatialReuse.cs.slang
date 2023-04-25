@@ -135,8 +135,9 @@ struct SpatialReusePass
 
 		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
 #elif UNBIASED_NAIVE
-		TinyUniformSampleGenerator sg1 = sg;
-		TinyUniformSampleGenerator sg2 = sg;
+        TinyUniformSampleGenerator sg1 = sg;
+        TinyUniformSampleGenerator sg2 = sg;
+        gDebug[pixel] = float4(0, 0, 0, 1);
 		[unroll]
         for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
@@ -165,18 +166,18 @@ struct SpatialReusePass
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 
-            validNeighborFlags |= 1u << i;
-		}
+            validNeighborFlags |= (1u << i);
+        }
 
         float Z = 0.f;
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
-        if (outputReservoir.W)
+        if (outputReservoir.W > 0.f)
             Z += currentReservoir.M;
 
 		[unroll]
         for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
-            if (!(validNeighborFlags & 1u << i))
+            if (!(validNeighborFlags & (1u << i)))
                 continue;
 
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
@@ -189,8 +190,8 @@ struct SpatialReusePass
             if (neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec))
                 Z += neighborReservoir.M;
         }
-        float m = 1.f / Z;
-        outputReservoir.W = (outputReservoir.W > 0.f && !isinf(m)) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
+        float m = Z > 0.f ? 1.f / Z : 0.f;
+        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 
 #elif UNBIASED_MIS
 		int selectedSample = -1;
@@ -226,7 +227,7 @@ struct SpatialReusePass
             if (outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg))
                 selectedSample = int(i);
 
-            validNeighborFlags |= 1u << i;
+            validNeighborFlags |= (1u << i);
 		}
 
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
@@ -245,7 +246,7 @@ struct SpatialReusePass
             [unroll]
             for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
             {
-                if (!(validNeighborFlags & 1u << i))
+                if (!(validNeighborFlags & (1u << i)))
                     continue;
 
                 uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2);
