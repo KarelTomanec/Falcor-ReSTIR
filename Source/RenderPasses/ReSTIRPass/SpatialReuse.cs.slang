@@ -121,7 +121,7 @@ struct SpatialReusePass
 
             NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
             if (!neighborNormalDepth.isValid())
-                return;
+                continue;
 
             if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
                 continue;
@@ -137,7 +137,6 @@ struct SpatialReusePass
 #elif UNBIASED_NAIVE
         TinyUniformSampleGenerator sg1 = sg;
         TinyUniformSampleGenerator sg2 = sg;
-        gDebug[pixel] = float4(0, 0, 0, 1);
 		[unroll]
         for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
@@ -155,7 +154,7 @@ struct SpatialReusePass
 
             NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
             if (!neighborNormalDepth.isValid())
-                return;
+                continue;
 
             if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
                 continue;
@@ -214,7 +213,7 @@ struct SpatialReusePass
 
             NormalDepth neighborNormalDepth = NormalDepth::unpack(gNormalDepth[neighborBufferIndex]);
             if (!neighborNormalDepth.isValid())
-                return;
+                continue;
 
             if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
                 continue;
