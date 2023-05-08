@@ -248,13 +248,19 @@ struct DecoupledPipelinePass
             }
 
             // Test visibility by tracing a shadow ray.
-            const LightSample currentReservoirLightSample = gLightSampler.getLightSample(currentReservoir.sample);
-            bool visible = surfaceData.evalVisibility(currentReservoirLightSample);
-            if (visible) {
-                currentReservoir.W = currentReservoir.W > 0.f ? (currentReservoir.weightSum / currentReservoir.M) / currentReservoir.W : 0.f;
+            LightSample currentReservoirLightSample;
+            if (initialSampleFound) {
+                currentReservoirLightSample = gLightSampler.getLightSample(currentReservoir.sample);
+                bool visible = surfaceData.evalVisibility(currentReservoirLightSample);
+                if (visible) {
+                    currentReservoir.W = currentReservoir.W > 0.f ? (currentReservoir.weightSum / currentReservoir.M) / currentReservoir.W : 0.f;
+                } else {
+                    currentReservoir.W = 0.0f;
+                }
             } else {
                 currentReservoir.W = 0.0f;
             }
+
 
             // TEMPORAL SAMPLE -------------------------------------------------------------------------------------------
 
