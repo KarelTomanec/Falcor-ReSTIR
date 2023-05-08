@@ -153,11 +153,8 @@ struct TemporalReusePass
         // Create output reservoir.
         Reservoir outputReservoir;
 
-        // Get surface data for the current pixel.
+        // Load surface data for the current pixel.
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
-
-        // Load shading data for the previous pixel.
-        SurfaceData prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
 
 #if BIASED
 
@@ -189,6 +186,9 @@ struct TemporalReusePass
         {
             Z += currentReservoir.M;
         }
+
+        // Load surface data for the previous pixel.
+        SurfaceData prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
         if (prevSurfaceData.evalTargetPDF(outputLightSample, viewVec))
         {
             Z += prevReservoir.M;
@@ -217,6 +217,8 @@ struct TemporalReusePass
 
         pSum += currPixelTargetPDF * currentReservoir.M;
 
+        // Load surface data for the previous pixel.
+        SurfaceData prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
         float prevPixelTargetPDF = prevSurfaceData.evalTargetPDF(outputLightSample, viewVec);
 
         pSum += prevPixelTargetPDF * prevReservoir.M;

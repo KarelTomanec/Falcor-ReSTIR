@@ -126,8 +126,6 @@ struct SpatialReusePass
             if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
                 continue;
 
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
-
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
@@ -158,8 +156,6 @@ struct SpatialReusePass
 
             if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
                 continue;
-
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
@@ -217,8 +213,6 @@ struct SpatialReusePass
 
             if (!isValidNeighbor(normalDepth.normal, neighborNormalDepth.normal, normalDepth.depth, neighborNormalDepth.depth))
                 continue;
-
-            SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
