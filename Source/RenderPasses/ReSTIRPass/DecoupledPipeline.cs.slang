@@ -248,8 +248,8 @@ struct DecoupledPipelinePass
             }
 
             // Test visibility by tracing a shadow ray.
-            const LightSample lightSample = gLightSampler.getLightSample(currentReservoir.sample);
-            bool visible = surfaceData.evalVisibility(lightSample);
+            const LightSample currentReservoirLightSample = gLightSampler.getLightSample(currentReservoir.sample);
+            bool visible = surfaceData.evalVisibility(currentReservoirLightSample);
             if (visible) {
                 currentReservoir.W = currentReservoir.W > 0.f ? (currentReservoir.weightSum / currentReservoir.M) / currentReservoir.W : 0.f;
             } else {
@@ -300,13 +300,15 @@ struct DecoupledPipelinePass
             uint prevBufferIndex = getBufferIndex(prevPixel, gFrameDim);
 
             // Get final reservoir from the previous frame.
-            Reservoir prevReservoir = Reservoir::unpack(gPrevReservoirs[prevBufferIndex]);
+            Reservoir temporalReservoir = Reservoir::unpack(gPrevReservoirs[prevBufferIndex]);
+            LightSample temporalReservoirLightSample = gLightSampler.getLightSample(temporalReservoir.sample);
 
             // Clamp the previous frame's M.
-            prevReservoir.M = min(historyLimit, prevReservoir.M);
+            temporalReservoir.M = min(historyLimit, temporalReservoir.M);
 
             // SPATIAL SAMPLE -------------------------------------------------------------------------------------------
             Reservoir spatioTemporalReservoir;
+            LightSample spatiotemporalReservoirLightSample;
             bool spatioTemporalNeighborFound = false;
             float spatialNeighborDistance = 0.f;
 
@@ -333,9 +335,12 @@ struct DecoupledPipelinePass
                     continue;
                 spatialReservoir.M = min(historyLimit, spatialReservoir.M);
 
-                LightSample neighborLightSample = gLightSampler.getLightSample(spatialReservoir.sample);
-                float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-                if (spatioTemporalReservoir.update(spatialReservoir, neighborReservoirTargetPDF, sg)) spatialNeighborDistance = distance(pixel, neighborPixel);
+                LightSample lightSample = gLightSampler.getLightSample(spatialReservoir.sample);
+                float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(lightSample, viewVec);
+                if (spatioTemporalReservoir.update(spatialReservoir, neighborReservoirTargetPDF, sg)) {
+                    spatialNeighborDistance = distance(pixel, neighborPixel);
+                    spatiotemporalReservoirLightSample = lightSample;
+                }
                 spatioTemporalNeighborFound = true;
             }
 
@@ -357,22 +362,19 @@ struct DecoupledPipelinePass
 
             if(initialSampleFound)
             {
-                LightSample currentLightSample = gLightSampler.getLightSample(currentReservoir.sample);
-                float currentReservoirTargetPDF = surfaceData.evalTargetPDF(currentLightSample, viewVec);
+                float currentReservoirTargetPDF = surfaceData.evalTargetPDF(currentReservoirLightSample, viewVec);
                 shadingWeight[0] = currentReservoir.M * currentReservoir.W * currentReservoirTargetPDF;
                 outputReservoir.update(currentReservoir, currentReservoirTargetPDF, sg);
             }
 
             if (temporalNeighborFound) {
-                LightSample neighborLightSample = gLightSampler.getLightSample(prevReservoir.sample);
-                float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
-                shadingWeight[1] = prevReservoir.M * prevReservoir.W * neighborReservoirTargetPDF;
-                outputReservoir.update(prevReservoir, neighborReservoirTargetPDF, sg);
+                float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(temporalReservoirLightSample, viewVec);
+                shadingWeight[1] = temporalReservoir.M * temporalReservoir.W * neighborReservoirTargetPDF;
+                outputReservoir.update(temporalReservoir, neighborReservoirTargetPDF, sg);
             }
 
             if (spatioTemporalNeighborFound) {
-                LightSample neighborLightSample = gLightSampler.getLightSample(spatioTemporalReservoir.sample);
-                float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
+                float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(spatiotemporalReservoirLightSample, viewVec);
                 shadingWeight[2] = spatioTemporalReservoir.M * spatioTemporalReservoir.W * neighborReservoirTargetPDF;
                 outputReservoir.update(spatioTemporalReservoir, neighborReservoirTargetPDF, sg);
             }
@@ -388,7 +390,7 @@ struct DecoupledPipelinePass
             albedo = bsdfProperties.diffuseReflectionAlbedo + bsdfProperties.specularReflectionAlbedo;
 
             bool found[] = { initialSampleFound, temporalNeighborFound, spatioTemporalNeighborFound };
-            Reservoir reservoirs[] = { outputReservoir, prevReservoir, spatioTemporalReservoir };
+            Reservoir reservoirs[] = { outputReservoir, temporalReservoir, spatioTemporalReservoir };
             // gDebug[pixel] = float4(shadingWeight[0], shadingWeight[1], shadingWeight[2], 1.f);
 
             for (uint i = 0; i < N; i++) {
@@ -418,13 +420,7 @@ struct DecoupledPipelinePass
                     }
                 }
 
-                bool valid = true;
-
-                if (reservoir.W == 0.0f)
-                    valid = false;
-
-                float3 diffuse = {};
-                float3 specular = {};
+                bool valid = reservoir.W == 0.0f ? false : true;
 
                 if (valid)
                 {
@@ -432,16 +428,18 @@ struct DecoupledPipelinePass
                     TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(pixel, gFrameCount);
 
                     sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
-                    diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
+                    float3 diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
 
                     sd.mtl.setActiveLobes((uint)LobeType::SpecularReflection);
-                    specular = bsdf.eval(sd, dirToLight, sg) * Li;
-                }
+                    float3 specular = bsdf.eval(sd, dirToLight, sg) * Li;
 
-                color += (diffuse + specular) * reservoir.W * shadingWeight[i];
+                    color += (diffuse + specular) * reservoir.W * shadingWeight[i];
+                }
             }
+
             if(outputReservoir.weightSum > 0.f)
                 color /= outputReservoir.weightSum;
+
             color += emission;
         } else {
             // Background pixel.
