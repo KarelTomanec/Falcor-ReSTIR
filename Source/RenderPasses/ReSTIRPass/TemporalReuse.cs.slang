@@ -194,7 +194,7 @@ struct TemporalReusePass
             Z += prevReservoir.M;
 		}
 
-		float m = 1.f / Z;
+		float m = Z > 0.f ? 1.f / Z : 0.f;
 		outputReservoir.W = (outputReservoir.W > 0.f && !isinf(m)) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 
 #elif UNBIASED_MIS
