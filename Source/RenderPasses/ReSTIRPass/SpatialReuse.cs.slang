@@ -104,7 +104,6 @@ struct SpatialReusePass
         uint validNeighborFlags = 0;
 
 #if BIASED
-        uint validCount = 0;
 		[unroll]
 		for(uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
 		{
@@ -130,7 +129,6 @@ struct SpatialReusePass
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
-            validCount++;
         }
 		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
 #elif UNBIASED_NAIVE
@@ -264,6 +262,7 @@ struct SpatialReusePass
         float m = pSum > 0.f ? pStar / pSum : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #endif
+        gDebug[pixel] = float4(outputReservoir.W, 0, 0, 1);
 		// Store reservoir
         gOutReservoirs[bufferIndex] = outputReservoir.pack();
 	}
