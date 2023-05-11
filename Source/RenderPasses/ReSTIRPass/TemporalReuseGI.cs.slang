@@ -159,7 +159,7 @@ struct TemporalReuseGIPass
         outputReservoir.update(currentReservoir, targetPdf, sg);
 
         outputReservoir.W = outputReservoir.W  > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
-
+        outputReservoir.M = min(outputReservoir.M, 30);
         // Store combined reservoir.
         gGIReservoirs[bufferIndex] = outputReservoir.pack();
 

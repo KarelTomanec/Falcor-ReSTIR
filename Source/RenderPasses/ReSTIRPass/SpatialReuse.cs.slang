@@ -132,7 +132,6 @@ struct SpatialReusePass
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
             validCount++;
         }
-        gDebug[pixel] = float4(lerp(float3(1.f, 0.f, 0.f), float3(0.f, 1.f, 0.f), float(validCount) / SPATIAL_REUSE_SAMPLE_COUNT), 1.f);
 		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
 #elif UNBIASED_NAIVE
         TinyUniformSampleGenerator sg1 = sg;

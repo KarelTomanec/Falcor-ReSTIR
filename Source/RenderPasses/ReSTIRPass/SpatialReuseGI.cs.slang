@@ -66,7 +66,7 @@ struct SpatialReuseGIPass
     RWTexture2D<float4> gDebug;
 
     static const float FLT_LARGE = 1e20f;
-    static const uint kNeighborCount = 1;
+    static const uint kNeighborCount = 5;
 
     bool evalSegmentVisibility(float3 pos, float3 endPoint)
     {
@@ -177,6 +177,7 @@ struct SpatialReuseGIPass
             float jacobian = r1q2LenSq * cosPhiB <= 0.f ? 0.f : clamp(q1q2LenSq * cosPhiA / (r1q2LenSq * cosPhiB), 0.f, FLT_LARGE);
             neighborReservoirTargetPDF *= jacobian;
 
+            neighborReservoir.M = min(300, neighborReservoir.M);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 
             validNeighborFlags |= (1u << i);
@@ -204,15 +205,14 @@ struct SpatialReuseGIPass
                 // Evaluate visibility
                 if (evalSegmentVisibility(neighborSurfaceData.position, outputReservoir.sample.samplePoint)) {
                     ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
+                    neighborReservoir.M = min(300, neighborReservoir.M);
                     Z += neighborReservoir.M;
                 }
             }
         }
         float m = Z > 0.f ? 1.f / Z : 0.f;
-        // outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
-        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / (outputReservoir.W) : 0.f;
-        outputReservoir.M = min(5, outputReservoir.M);
-
+        outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
+        // outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / (outputReservoir.W) : 0.f;
 		// Store reservoir
         gOutReservoirsGI[bufferIndex] = outputReservoir.pack();
 	}
