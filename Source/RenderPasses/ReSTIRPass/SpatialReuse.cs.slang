@@ -104,6 +104,7 @@ struct SpatialReusePass
         uint validNeighborFlags = 0;
 
 #if BIASED
+        uint validCount = 0;
 		[unroll]
 		for(uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
 		{
@@ -129,8 +130,9 @@ struct SpatialReusePass
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
-		}
-
+            validCount++;
+        }
+        gDebug[pixel] = float4(lerp(float3(1.f, 0.f, 0.f), float3(0.f, 1.f, 0.f), float(validCount) / SPATIAL_REUSE_SAMPLE_COUNT), 1.f);
 		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
 #elif UNBIASED_NAIVE
         TinyUniformSampleGenerator sg1 = sg;
@@ -168,7 +170,6 @@ struct SpatialReusePass
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
         if (outputReservoir.W > 0.f)
             Z += currentReservoir.M;
-
 		[unroll]
         for (uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
         {
@@ -251,12 +252,11 @@ struct SpatialReusePass
 
                 float neighborPixelTargetPDF = neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec);
 #if UNBIASED_RAYTRACED
-                if (neighborPixelTargetPDF > 0.f) {
+                if (neighborPixelTargetPDF > 0.f)
                     neighborPixelTargetPDF *= neighborSurfaceData.evalVisibility(outputLightSample);
-                }
 #endif
                 pSum += neighborPixelTargetPDF * neighborReservoir.M;
-                if (selectedSample == i)
+                if (selectedSample == int(i))
                     pStar = neighborPixelTargetPDF;
             }
         }
@@ -265,7 +265,7 @@ struct SpatialReusePass
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #endif
 		// Store reservoir
-		gOutReservoirs[bufferIndex] = outputReservoir.pack();
+        gOutReservoirs[bufferIndex] = outputReservoir.pack();
 	}
 }
 

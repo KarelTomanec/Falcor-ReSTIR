@@ -109,17 +109,19 @@ struct SpatialReuseGIPass
         SampleGI currLightSample = currentReservoir.sample;
         float currReservoirTargetPDF = luminance(currLightSample.Le);
 
-        bool tmpSelected = outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
-
-        float Z = currentReservoir.M;
+        outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
         float3 rayOrigin = computeRayOrigin(surfaceData.position, surfaceData.normal);
+        TinyUniformSampleGenerator sg1 = sg;
+        TinyUniformSampleGenerator sg2 = sg;
+
+        uint validNeighborFlags = 0;
         [unroll]
         for (int i = 0; i < kNeighborCount; i++)
 		{
-            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 0.1f * gFrameDim.x);
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 300.0f);
-            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg, 30.0f);
+            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 0.1f * gFrameDim.x);
+            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 300.0f);
+            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 30.0f);
 
 			// Discard pixel if out of bounds
 			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
@@ -135,7 +137,7 @@ struct SpatialReuseGIPass
             if (!neighborSurfaceData.isValid())
                 continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, 0.9f, 0.05f))
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, 0.9f, 0.1f))
                 continue;
 
             SampleGI neighborLightSample = neighborReservoir.sample;
@@ -164,7 +166,6 @@ struct SpatialReuseGIPass
             if (cosA <= 0.f || cosPhiA <= 0.f || r1q2LenSq <= 0.f || q1q2LenSq <= 0.f) {
 
                 neighborReservoirTargetPDF = 0.f;
-                gDebug[pixel] = float4(1, 0, 0, 1);
             }
 
             // Evaluate visibility
@@ -175,18 +176,43 @@ struct SpatialReuseGIPass
             // Calculate Jacobian determinant
             float jacobian = r1q2LenSq * cosPhiB <= 0.f ? 0.f : clamp(q1q2LenSq * cosPhiA / (r1q2LenSq * cosPhiB), 0.f, FLT_LARGE);
             neighborReservoirTargetPDF *= jacobian;
-            // if (neighborReservoirTargetPDF == 0.f)
-            //     gDebug[pixel] = float4(1, 0, 0, 1);
 
-            bool isSelected = outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
-            if (isSelected && neighborReservoirTargetPDF > 0.f) {
-                Z += neighborReservoir.M;
-                gDebug[pixel] = float4(0, 1, 0, 1);
+            outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
+
+            validNeighborFlags |= (1u << i);
+        }
+
+        float targetPdf = luminance(outputReservoir.sample.Le);
+        float Z = 0.f;
+
+        if (targetPdf > 0.f) {
+            if (evalSegmentVisibility(surfaceData.position, outputReservoir.sample.samplePoint))
+                Z += currentReservoir.M;
+
+            [unroll]
+            for (int i = 0; i < kNeighborCount; i++)
+            {
+                if (!(validNeighborFlags & (1u << i)))
+                    continue;
+
+                // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2, 0.1f * gFrameDim.x);
+                uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2, 30.0f);
+
+                uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
+                SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
+
+                // Evaluate visibility
+                if (evalSegmentVisibility(neighborSurfaceData.position, outputReservoir.sample.samplePoint)) {
+                    ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
+                    Z += neighborReservoir.M;
+                }
             }
         }
-        outputReservoir.W = outputReservoir.M * outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
-        // outputReservoir.W = outputReservoir.W * Z > 0.f ? outputReservoir.weightSum / (Z * outputReservoir.W) : 0.f;
-        outputReservoir.M = min(outputReservoir.M, 500);
+        float m = Z > 0.f ? 1.f / Z : 0.f;
+        // outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
+        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / (outputReservoir.W) : 0.f;
+        outputReservoir.M = min(5, outputReservoir.M);
+
 		// Store reservoir
         gOutReservoirsGI[bufferIndex] = outputReservoir.pack();
 	}

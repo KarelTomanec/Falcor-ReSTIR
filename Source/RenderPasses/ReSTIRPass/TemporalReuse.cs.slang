@@ -99,7 +99,6 @@ struct TemporalReusePass
         const float3 primaryRayDir = getPrimaryRayDir(pixel, gFrameDim, gScene.camera);
         const float3 viewVec = -normalize(primaryRayDir);
 
-        // gDebug[pixel] = float4(gPrevNormalDepth[bufferIndex], 1);
 
         // Reproject the pixel position.
         uint2 reprojPos = uint2(float2(pixel) + gMotionVectors[pixel] * gFrameDim + sampleNext2D(sg));
@@ -160,7 +159,7 @@ struct TemporalReusePass
 
         // Standard combination of multiple reservoirs reservoirs (Algorithm 4 from the original paper):
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
-        float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
+        float currReservoirTargetPDF = currentReservoir.W > 0.f ? surfaceData.evalTargetPDF(currLightSample, viewVec) : 0.f;
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
         LightSample prevLightSample = gLightSampler.getLightSample(prevReservoir.sample);
@@ -173,7 +172,7 @@ struct TemporalReusePass
 
         // Naive unbiased combination of multiple reservoirs (Algorithm 6 from the original ReSTIR paper):
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
-        float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
+        float currReservoirTargetPDF = currentReservoir.W > 0.f ? surfaceData.evalTargetPDF(currLightSample, viewVec) : 0.f;
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
         LightSample prevLightSample = gLightSampler.getLightSample(prevReservoir.sample);
@@ -195,18 +194,21 @@ struct TemporalReusePass
 		}
 
 		float m = Z > 0.f ? 1.f / Z : 0.f;
-		outputReservoir.W = (outputReservoir.W > 0.f && !isinf(m)) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
+        outputReservoir.W = (outputReservoir.W > 0.f) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 
 #elif UNBIASED_MIS
 
-		// Unbiased combination of multiple reservoirs using MIS (Algorithm 1 from the original ReSTIR paper's supplemental document):
+        // Unbiased combination of multiple reservoirs using MIS (Algorithm 1 from the original ReSTIR paper's supplemental document):
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
-        float currReservoirTargetPDF = surfaceData.evalTargetPDF(currLightSample, viewVec);
+        float currReservoirTargetPDF = currentReservoir.W > 0.f ? surfaceData.evalTargetPDF(currLightSample, viewVec) : 0.f;
+        float currentSampleVisibility = currentReservoir.W > 0.f ? 1.f : 0.f;
 
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
         LightSample prevLightSample = gLightSampler.getLightSample(prevReservoir.sample);
         float prevReservoirTargetPDF = surfaceData.evalTargetPDF(prevLightSample, viewVec);
+
+        float neighborSampleVisibility = prevReservoir.W > 0.f ? 1.f : 0.f;
 
         bool neighborContributed = outputReservoir.update(prevReservoir, prevReservoirTargetPDF, sg);
 
@@ -215,18 +217,35 @@ struct TemporalReusePass
 
         float currPixelTargetPDF = surfaceData.evalTargetPDF(outputLightSample, viewVec);
 
+#if UNBIASED_RAYTRACED
+        if (currPixelTargetPDF) {
+            if (neighborContributed)
+                currPixelTargetPDF *= surfaceData.evalVisibility(outputLightSample);
+            else
+                currPixelTargetPDF *= currentSampleVisibility;
+        }
+#endif
+
         pSum += currPixelTargetPDF * currentReservoir.M;
 
         // Load surface data for the previous pixel.
         SurfaceData prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
         float prevPixelTargetPDF = prevSurfaceData.evalTargetPDF(outputLightSample, viewVec);
 
+#if UNBIASED_RAYTRACED
+        if (prevPixelTargetPDF > 0.f) {
+            if (neighborContributed)
+                currPixelTargetPDF *= neighborSampleVisibility;
+            else
+                prevPixelTargetPDF *= prevSurfaceData.evalVisibility(outputLightSample);
+        }
+#endif
+
         pSum += prevPixelTargetPDF * prevReservoir.M;
 
         float m = pSum > 0.f ? ((neighborContributed ? prevPixelTargetPDF : currPixelTargetPDF) / pSum) : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #endif
-
 		// Store combined reservoir.
 		gReservoirs[bufferIndex] = outputReservoir.pack();
 

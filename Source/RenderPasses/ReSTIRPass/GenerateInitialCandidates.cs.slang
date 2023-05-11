@@ -246,12 +246,10 @@ struct GenerateInitialCandidatesPass
 #else
             outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
 #endif
-            // outputReservoir.M = 1;
+            outputReservoir.M = 1;
         }
 
         gReservoirs[getBufferIndex(pixel, gFrameDim)] = outputReservoir.pack();
-
-        // gDebug[pixel] = float4(0, 0, 0, 1);
 
 #if USE_CHECKERBOARDING
         gReservoirs[getBufferIndex(couplePixel, gFrameDim)] = outputReservoir.pack();
