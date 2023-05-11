@@ -160,6 +160,7 @@ struct SpatialReusePass
 
             LightSample neighborLightSample = gLightSampler.getLightSample(neighborReservoir.sample);
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
+
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 
             validNeighborFlags |= (1u << i);

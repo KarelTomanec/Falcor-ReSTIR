@@ -235,7 +235,7 @@ struct TemporalReusePass
 #if UNBIASED_RAYTRACED
         if (prevPixelTargetPDF > 0.f) {
             if (neighborContributed)
-                currPixelTargetPDF *= neighborSampleVisibility;
+                prevPixelTargetPDF *= neighborSampleVisibility;
             else
                 prevPixelTargetPDF *= prevSurfaceData.evalVisibility(outputLightSample);
         }
