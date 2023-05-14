@@ -68,7 +68,7 @@ struct ReservoirGI
     SampleGI sample; ///< The output sample.
 	float weightSum; ///< The sum of weights.
 	float W; ///< The weight of the reservoir.
-	float M; ///< The number of samples seen so far.
+	int M; ///< The number of samples seen so far.
 
 	__init()
     {
@@ -119,13 +119,13 @@ struct ReservoirGI
 
         reservoir.sample = SampleGI::unpack(packedReservoir.packedLightSample);
 		reservoir.W = asfloat(packedReservoir.W);
-        reservoir.M = asfloat(packedReservoir.M);
+        reservoir.M = packedReservoir.M;
         reservoir.weightSum = reservoir.M * reservoir.W;
 
 		if (isinf(reservoir.W) || isnan(reservoir.W))
         {
             reservoir.W = 0.f;
-            reservoir.M = 0.f;
+            reservoir.M = 0;
         }
 
 		return reservoir;
@@ -136,7 +136,7 @@ struct ReservoirGI
         PackedReservoirGI packedReservoir = {};
         packedReservoir.packedLightSample = this.sample.pack();
         packedReservoir.W = asuint(this.W);
-        packedReservoir.M = asuint(this.M);
+        packedReservoir.M = this.M;
 		return packedReservoir;
 	}
 };
