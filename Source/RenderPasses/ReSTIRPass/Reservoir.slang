@@ -4,28 +4,40 @@ import Rendering.Materials.IBSDF;
 
 import LightSampler;
 
-struct PackedReservoir ///< 16 bytes
+/** This structure is used to pack the reservoir data into a more efficient format using only 16 bytes.
+*/
+struct PackedReservoir
 {
-    PackedMinimalLightSample packedLightSample;
-    uint W;
-    uint M;
+    PackedMinimalLightSample packedLightSample; ///< Packed minimal light sample
+    uint W;                                     ///< Packed reservoir weight
+    uint M;                                     ///< Packed number of samples
 };
 
 struct Reservoir
 {
-    MinimalLightSample sample;      ///< The output sample.
-	float weightSum;                ///< The sum of weights.
-	float W;                        ///< The weight of the reservoir.
-	uint M;                        ///< The number of samples seen so far.
+    MinimalLightSample sample;      ///< Output light sample.
+	float weightSum;                ///< Sum of weights.
+	float W;                        ///< Weight of the reservoir.
+	uint M;                         ///< Number of samples seen so far.
 
+    /** Sets up a reservoir with no samples, zero weights and sample count.
+     */
 	__init()
     {
         this.sample = {};
         this.weightSum = 0;
         this.W = 0;
         this.M = 0;
-	}
+    }
 
+    /**  Updates the reservoir with a new light sample.
+     *
+     * \param[in] lightSample New minimal light sample to consider for addition in the reservoir.
+     * \param[in] targetPDF Target PDF of the light sample (doesn't have to be normalize).
+     * \param[in] sourcePDF Source PDF of the light sample [0, 1].
+     * \param[in, out] sg Sample generator to be used for selection process.
+     * \return Indicates whether the new sample was selected for the reservoir.
+     */
     [mutating]
     bool update<S : ISampleGenerator>(const MinimalLightSample lightSample, const float targetPDF, const float sourcePDF, inout S sg)
 	{
@@ -42,6 +54,10 @@ struct Reservoir
 		return isSelected;
 	}
 
+    /** Combine the current reservoir with another reservoir (merge).
+     *
+     * \param[in, out] reservoir Another reservoir to consider for merging.
+     */
 	[mutating]
 	bool update<S : ISampleGenerator>(inout Reservoir reservoir, const float targetPDF, inout S sg)
 	{
