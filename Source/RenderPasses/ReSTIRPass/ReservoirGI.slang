@@ -68,7 +68,7 @@ struct ReservoirGI
     SampleGI sample; ///< The output sample.
 	float weightSum; ///< The sum of weights.
 	float W; ///< The weight of the reservoir.
-	int M; ///< The number of samples seen so far.
+	uint M; ///< The number of samples seen so far.
 
 	__init()
     {
