@@ -179,21 +179,21 @@ struct TemporalReusePass
         float prevReservoirTargetPDF = surfaceData.evalTargetPDF(prevLightSample, viewVec);
         outputReservoir.update(prevReservoir, prevReservoirTargetPDF, sg);
 
-        float Z = 0.f;
+        uint Z = 0u;
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
-        if (surfaceData.evalTargetPDF(outputLightSample, viewVec))
+        if (surfaceData.evalTargetPDF(outputLightSample, viewVec) > 0.f)
         {
             Z += currentReservoir.M;
         }
 
         // Load surface data for the previous pixel.
         SurfaceData prevSurfaceData = SurfaceData::unpack(gPrevSurfaceData[getBufferIndex(prevPixel, gFrameDim)]);
-        if (prevSurfaceData.evalTargetPDF(outputLightSample, viewVec))
+        if (prevSurfaceData.evalTargetPDF(outputLightSample, viewVec) > 0.f)
         {
             Z += prevReservoir.M;
 		}
 
-		float m = Z > 0.f ? 1.f / Z : 0.f;
+        float m = Z > 0.f ? 1.f / Z : 0.f;
         outputReservoir.W = (outputReservoir.W > 0.f) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 
 #elif UNBIASED_MIS

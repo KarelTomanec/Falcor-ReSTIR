@@ -31,7 +31,7 @@ struct Reservoir
 	{
         float weight = targetPDF / sourcePDF;
         this.weightSum += weight;
-        this.M += 1;
+        this.M += 1u;
         bool isSelected = sampleNext1D(sg) * this.weightSum < weight;
 
 		if(isSelected) {
@@ -70,7 +70,7 @@ struct Reservoir
 		if (isinf(reservoir.W) || isnan(reservoir.W))
         {
             reservoir.W = 0.f;
-            reservoir.M = 0;
+            reservoir.M = 0u;
         }
 
 		return reservoir;

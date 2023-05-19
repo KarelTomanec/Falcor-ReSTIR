@@ -164,7 +164,7 @@ struct SpatialReusePass
             validNeighborFlags |= (1u << i);
         }
 
-        float Z = 0.f;
+        uint Z = 0u;
         LightSample outputLightSample = gLightSampler.getLightSample(outputReservoir.sample);
         if (outputReservoir.W > 0.f)
             Z += currentReservoir.M;
@@ -184,9 +184,8 @@ struct SpatialReusePass
             if (neighborSurfaceData.evalTargetPDF(outputLightSample, viewVec))
                 Z += neighborReservoir.M;
         }
-        float m = Z > 0.f ? 1.f / Z : 0.f;
+        float m = Z > 0.f ? 1.f / float(Z) : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
-
 #elif UNBIASED_MIS
 		int selectedSample = -1;
 		TinyUniformSampleGenerator sg1 = sg;
@@ -262,7 +261,7 @@ struct SpatialReusePass
         float m = pSum > 0.f ? pStar / pSum : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #endif
-        gDebug[pixel] = float4(outputReservoir.W, 0, 0, 1);
+        // gDebug[pixel] = float4(outputReservoir.W, 0, 0, 1);
 		// Store reservoir
         gOutReservoirs[bufferIndex] = outputReservoir.pack();
 	}

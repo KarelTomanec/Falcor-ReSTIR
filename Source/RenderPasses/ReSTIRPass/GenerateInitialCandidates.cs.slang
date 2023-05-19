@@ -234,10 +234,8 @@ struct GenerateInitialCandidatesPass
 #if TEST_INITIAL_SAMPLE_VISIBILITY
             // Test visibility by tracing a shadow ray.
             // Create a DXR 1.1 query object to trace a ray (the <1> means use alpha testing)
-            SceneRayQuery<1> rayQuery;
             const LightSample lightSample = gLightSampler.getLightSample(outputReservoir.sample);
-            const Ray ray = Ray(rayOrigin, lightSample.getDirToSample(rayOrigin), 0.0f, lightSample.getDistanceToSample(rayOrigin) - kShadowRayEpsilon);
-            bool visible = rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
+            bool visible = surfaceData.evalVisibility(lightSample);
             if (visible) {
                 outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
             } else {
