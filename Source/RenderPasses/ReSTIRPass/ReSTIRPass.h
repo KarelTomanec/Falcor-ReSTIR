@@ -41,12 +41,7 @@ public:
     using SharedPtr = std::shared_ptr<ReSTIRPass>;
 
     static const Info kInfo;
-
-    /** Create a new render pass object.
-        \param[in] pRenderContext The render context.
-        \param[in] dict Dictionary of serialized parameters.
-        \return A new object, or an exception is thrown if creation failed.
-    */
+    
     static SharedPtr create(RenderContext* pRenderContext = nullptr, const Dictionary& dict = {});
 
     virtual Dictionary getScriptingDictionary() override;

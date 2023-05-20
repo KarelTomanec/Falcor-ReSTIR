@@ -1393,7 +1393,7 @@ Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner
     defines.add("EMISSIVE_LIGHT_CANDIDATE_COUNT", std::to_string(owner.mReSTIRParams.emissiveLightCandidateCount));
     defines.add("ENV_LIGHT_CANDIDATE_COUNT", std::to_string(owner.mReSTIRParams.envLightCandidateCount));
     defines.add("ANALYTIC_LIGHT_CANDIDATE_COUNT", std::to_string(owner.mReSTIRParams.analyticLightCandidateCount));
-    defines.add("TEST_INITIAL_SAMPLE_VISIBILITY", std::to_string(owner.mReSTIRParams.testInitialSampleVisibility)); // FIXME
+    defines.add("TEST_INITIAL_SAMPLE_VISIBILITY", std::to_string(owner.mReSTIRParams.testInitialSampleVisibility));
 
     defines.add("DEPTH_THRESHOLD", std::to_string(owner.mReSTIRParams.depthThreshold));
     defines.add("NORMAL_THRESHOLD", std::to_string(owner.mReSTIRParams.normalThreshold));
