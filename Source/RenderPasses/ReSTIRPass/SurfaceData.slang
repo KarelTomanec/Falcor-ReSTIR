@@ -226,8 +226,11 @@ struct SurfaceData
         SceneRayQuery<1> rayQuery;
         const Ray ray = Ray(rayOrigin, dirToSample, 0.0001f, distToSample - kShadowRayEpsilon);
 		return rayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
-	}
+    }
 
+    /** Returns true if the SurfaceData is valid, i.e., if it corresponds to a real surface point in the scene.
+     *  The SurfaceData is considered invalid if its depth is -FLT_MAX, a sentinel value.
+     */
     bool isValid()
     {
         return depth != -FLT_MAX;
