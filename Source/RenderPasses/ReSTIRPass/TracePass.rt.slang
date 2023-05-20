@@ -92,7 +92,7 @@ RWTexture2D<float4> gDebug;
 // Static configuration based on defines set from the host.
 #define is_valid(name) (is_valid_##name != 0)
 
-static const uint kMaxBounces = 2; // MAX_BOUNCES;
+static const uint kMaxBounces = GI_BOUNCES; // MAX_BOUNCES;
 static const bool kComputeDirect = true; // COMPUTE_DIRECT;
 static const bool kUseImportanceSampling = false; // USE_IMPORTANCE_SAMPLING;
 static const bool kUseAnalyticLights = false;    // USE_ANALYTIC_LIGHTS;

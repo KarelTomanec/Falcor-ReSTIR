@@ -148,6 +148,8 @@ namespace
     const uint32_t kMinLightTileSize = 128;
     const uint32_t kMaxLightTileSize = 8096;
 
+    const uint32_t kMinGIBounces = 1;
+    const uint32_t kMaxGIBounces = 10;
     const uint32_t kMinGITemporalMCap = 1;
     const uint32_t kMaxGITemporalMCap = 100;
     const uint32_t kMinGISpatialMCap = 1;
@@ -414,6 +416,12 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
     {
         if (auto group = widget.group("ReSTIR GI", false))
         {
+            dirty |= group.checkbox("Indirect Only", mReSTIRParams.giIndirectOnly);
+            group.tooltip("Render only indirect light.");
+
+            dirty |= group.var("Max. Bounces", mReSTIRParams.giBounces, kMinGIBounces, kMaxGIBounces);
+            group.tooltip("Maximum number of bounces.");
+
             dirty |= group.var("Temporal M-cap", mReSTIRParams.giTemporalMCap, kMinGITemporalMCap, kMaxGITemporalMCap);
             group.tooltip("This cap helps to curtail the influence of temporal samples partially, providing new candidates with a better opportunity to be chosen during resampling. Implementing a reasonable M-cap is also necessary to limit correlations between frames.");
 
@@ -1461,6 +1469,8 @@ Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner
     defines.add("GI_SPATIAL_SAMPLE_COUNT", std::to_string(owner.mReSTIRParams.giSpatialReuseSampleCount));
     defines.add("GI_DEPTH_THRESHOLD", std::to_string(owner.mReSTIRParams.giDepthThreshold));
     defines.add("GI_NORMAL_THRESHOLD", std::to_string(owner.mReSTIRParams.giNormalThreshold));
+    defines.add("GI_BOUNCES", std::to_string(owner.mReSTIRParams.giBounces));
+    defines.add("GI_INDIRECT_ONLY", owner.mReSTIRParams.giIndirectOnly ? "1" : "0");
 
     return defines;
 }

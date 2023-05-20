@@ -170,7 +170,9 @@ struct ShadePass
 
             float3 directLight = evalDirectLight(pixel, sd, bsdf, sg);
             float3 indirectLight = evalIndirectLight(pixel, sd, bsdf, sg);
+#if !GI_INDIRECT_ONLY
             color += directLight;
+#endif
             color += indirectLight;
 		} else {
 			// Background pixel.

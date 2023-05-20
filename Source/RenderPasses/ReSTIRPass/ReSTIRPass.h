@@ -173,6 +173,8 @@ private:
         uint32_t    giSpatialReuseSampleCount = 5;              ///< Number of neighbor samples considered for resampling.
         float       giNormalThreshold = 0.5f;                   ///< Threshold for normal comparison.
         float       giDepthThreshold = 0.2f;                    ///< Threshold for depth comparison.
+        uint32_t    giBounces = 2;                              ///< Maximum number of bounces
+        bool        giIndirectOnly = false;
     };
 
     // Configuration
