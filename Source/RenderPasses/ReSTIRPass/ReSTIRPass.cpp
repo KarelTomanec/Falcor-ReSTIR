@@ -453,10 +453,6 @@ void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& rend
 
     FALCOR_ASSERT(tracePass.pProgram != nullptr && tracePass.pBindingTable != nullptr && tracePass.pVars != nullptr);
 
-    // Additional specialization. This shouldn't change resource declarations.
-    //tracePass.pProgram->addDefine("USE_VIEW_DIR", (mpScene->getCamera()->getApertureRadius() > 0 && renderData[kInputViewDir] != nullptr) ? "1" : "0");
-    //tracePass.pProgram->addDefine("LOCAL_LIGHT_SAMPLES_COUNT", "32");
-
     // Bind global resources.
     auto var = tracePass.pVars->getRootVar();
     mpScene->setRaytracingShaderData(pRenderContext, var);
@@ -464,15 +460,6 @@ void ReSTIRPass::tracePass(RenderContext* pRenderContext, const RenderData& rend
     if (mVarsChanged) mpSampleGenerator->setShaderData(var);
     var["gGIReservoirs"] = mpGIReservoirs;
     var["gDebug"] = renderData.getTexture(kDebug);
-
-    //if (mpEmissiveGeometryAliasTable) mpEmissiveGeometryAliasTable->setShaderData(var["CB"]["gLightSampler"]["emissiveGeometryAliasTable"]);
-    //if (mpAnalyticLightsAliasTable) mpAnalyticLightsAliasTable->setShaderData(var["CB"]["gLightSampler"]["analyticLightsAliasTable"]);
-    //if (mpEnvironmentAliasTable)
-    //{
-    //    mpEnvironmentAliasTable->setShaderData(var["CB"]["gLightSampler"]["environmentAliasTable"]);
-    //    var["CB"]["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
-    //}
-
     // Full screen dispatch.
     mpScene->raytrace(pRenderContext, tracePass.pProgram.get(), tracePass.pVars, { mFrameDim, 1u });
 }
@@ -782,7 +769,7 @@ void ReSTIRPass::spatialReuseGIPass(RenderContext* pRenderContext, const RenderD
     var["gSurfaceData"] = mpSurfaceData;
 
 
-    std::swap(mpGIReservoirs, mpPrevGIReservoirs);
+    //std::swap(mpGIReservoirs, mpPrevGIReservoirs);
 
     var["gReservoirsGI"] = mpPrevGIReservoirs;
     var["gOutReservoirsGI"] = mpGIReservoirs;
