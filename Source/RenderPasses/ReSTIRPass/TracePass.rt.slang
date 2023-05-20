@@ -79,14 +79,10 @@ cbuffer CB
 {
     uint        gFrameCount;        // Frame count since scene was loaded.
 	EmissiveLightSampler gEmissiveLightSampler;
-    // EnvMapSampler gEnvMapSampler;                    ///< Environment map sampler. Only valid when kUseEnvLight == true.
-
-    // LightSampler gLightSampler;
 }
 
 // Inputs
 Texture2D<PackedHitInfo> gVBuffer;
-// RWStructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
 
 // Outputs
 RWStructuredBuffer<PackedReservoirGI> gGIReservoirs;
@@ -165,31 +161,6 @@ ShadingData loadShadingData(const HitInfo hit, const float3 rayOrigin, const flo
         materialID = gScene.getMaterialID(triangleHit.instanceID);
     }
 #endif
-// #if SCENE_HAS_GEOMETRY_TYPE(GEOMETRY_TYPE_DISPLACED_TRIANGLE_MESH)
-//     if (hit.getType() == HitType::DisplacedTriangle)
-//     {
-//         const DisplacedTriangleHit displacedTriangleHit = hit.getDisplacedTriangleHit();
-//         v = gScene.getVertexData(displacedTriangleHit, -rayDir);
-//         materialID = gScene.getMaterialID(displacedTriangleHit.instanceID);
-//     }
-// #endif
-// #if SCENE_HAS_GEOMETRY_TYPE(GEOMETRY_TYPE_CURVE)
-//     if (hit.getType() == HitType::Curve)
-//     {
-//         const CurveHit curveHit = hit.getCurveHit();
-//         v = gScene.getVertexDataFromCurve(curveHit);
-//         materialID = gScene.getMaterialID(curveHit.instanceID);
-//     }
-// #endif
-// #if SCENE_HAS_GEOMETRY_TYPE(GEOMETRY_TYPE_SDF_GRID)
-//     if (hit.getType() == HitType::SDFGrid)
-//     {
-//         const SDFGridHit sdfGridHit = hit.getSDFGridHit();
-//         v = gScene.getVertexDataFromSDFGrid(sdfGridHit, rayOrigin, rayDir);
-//         materialID = gScene.getMaterialID(sdfGridHit.instanceID);
-//     }
-// #endif
-
     ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDir, lod);
 
     return sd;
@@ -365,55 +336,33 @@ void handleHit(const HitInfo hit, inout ScatterRayData rayData)
     // Compute ray origin for new rays spawned from the hit.
     float3 rayOrigin = sd.computeNewRayOrigin();
 
-    if (rayData.pathLength == 0) {
+    if (rayData.pathLength == 0)
+    {
         rayData.samplePoint = rayOrigin;
         rayData.sampleNormal = sd.N;
     }
-
-    // Add contribution of direct light from analytic lights.
-    // if (kUseAnalyticLights)
-    // {
-    //     float3 Lr = evalDirectAnalytic(sd, bsdf, rayData.sg);
-    //     rayData.radiance += rayData.thp * Lr;
-    // }
-
-    // Sample emissive
-    // Evaluate contribution.
-    // Test visibility by tracing a shadow ray.
-    // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
-    // LightSample ls = gLightSampler.sampleEmissiveGeometry(rayData.sg);
-    // float3 originToLight = ls.posDir - rayOrigin;
-    // float distSqr = max(FLT_MIN, dot(originToLight, originToLight));
-    // float distance = sqrt(distSqr);
-    // float3 sampleDir = originToLight / distance;
-    // bool V = traceShadowRay(rayOrigin, sampleDir, distance - kShadowRayEpsilon);
-    // if (V) {
-    //     float geometryFactor = max(0.f, dot(ls.normal, -sampleDir)) / distSqr;
-    //     float3 Lr = bsdf.eval(sd, sampleDir, rayData.sg) * gLightSampler.getLightSampleRadiance(ls.minLightSample) * geometryFactor / ls.pdf;
-    //     rayData.radiance += rayData.thp * Lr;
-    //     // rayData.pdf *= ls.pdf;
-    // }
 
     // Falcor's emissive sampling
     LightSample ls;
     bool validSample = generateEmissiveSample(rayOrigin, sd.N, true, rayData.sg, ls);
     bool V = traceShadowRay(rayOrigin, ls.dir, ls.distance - kShadowRayEpsilon);
     float3 Lr;
-    if (V) {
+    if (V)
+    {
         Lr = bsdf.eval(sd, ls.dir, rayData.sg) * ls.Li;
-        // rayData.pdf *= ls.pdf;
-    } else {
+    }
+    else
+    {
         validSample = false;
     }
 
-    if (validSample) {
+    if (validSample)
+    {
         float scatterPdf = bsdf.evalPdf(sd, ls.dir, true);
         Lr *= evalMIS(1, ls.pdf, 1, scatterPdf);
         float3 weight = bsdf.eval(sd, ls.dir, rayData.sg);
         rayData.radiance += rayData.thp * weight * Lr;
     }
-
-
 
 
     // Generate scatter ray for the next path segment.
@@ -488,8 +437,8 @@ void tracePath(const uint2 pixel, const uint2 frameDim)
         sample.sampleNormal = rayData.sampleNormal;
         sample.Le = rayData.radiance;
         sample.sourcePdf = rayData.pdf;
-        // sample.valid = rayData.pathLength > 0 ? 1 : 0;
-        sample.valid = 1;
+        sample.valid = rayData.pathLength > 0 ? 1 : 0;
+        gDebug[pixel] = float4(sample.valid, 0, 0, 1);
         float targetPdf = luminance(sample.Le);
         reservoir.update(sample, targetPdf, sample.sourcePdf, sg);
 

@@ -156,7 +156,6 @@ struct TemporalReusePass
         SurfaceData surfaceData = SurfaceData::unpack(gSurfaceData[bufferIndex]);
 
 #if BIASED
-
         // Standard combination of multiple reservoirs reservoirs (Algorithm 4 from the original paper):
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
         float currReservoirTargetPDF = currentReservoir.W > 0.f ? surfaceData.evalTargetPDF(currLightSample, viewVec) : 0.f;
@@ -169,7 +168,6 @@ struct TemporalReusePass
 		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
 
 #elif UNBIASED_NAIVE
-
         // Naive unbiased combination of multiple reservoirs (Algorithm 6 from the original ReSTIR paper):
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
         float currReservoirTargetPDF = currentReservoir.W > 0.f ? surfaceData.evalTargetPDF(currLightSample, viewVec) : 0.f;
@@ -197,7 +195,6 @@ struct TemporalReusePass
         outputReservoir.W = (outputReservoir.W > 0.f) ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 
 #elif UNBIASED_MIS
-
         // Unbiased combination of multiple reservoirs using MIS (Algorithm 1 from the original ReSTIR paper's supplemental document):
         LightSample currLightSample = gLightSampler.getLightSample(currentReservoir.sample);
         float currReservoirTargetPDF = currentReservoir.W > 0.f ? surfaceData.evalTargetPDF(currLightSample, viewVec) : 0.f;

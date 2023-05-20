@@ -1364,7 +1364,7 @@ void ReSTIRPass::endFrame(RenderContext* pRenderContext, const RenderData& rende
     std::swap(mpReservoirs, mpPrevReservoirs);
     std::swap(mpSurfaceData, mpPrevSurfaceData);
     std::swap(mpNormalDepth, mpPrevNormalDepth);
-    std::swap(mpGIReservoirs, mpPrevGIReservoirs);
+    //std::swap(mpGIReservoirs, mpPrevGIReservoirs);
 }
 
 Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner) const

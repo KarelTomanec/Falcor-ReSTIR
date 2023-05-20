@@ -1,31 +1,3 @@
-/***************************************************************************
- # Copyright (c) 2015-21, NVIDIA CORPORATION. All rights reserved.
- #
- # Redistribution and use in source and binary forms, with or without
- # modification, are permitted provided that the following conditions
- # are met:
- #  * Redistributions of source code must retain the above copyright
- #    notice, this list of conditions and the following disclaimer.
- #  * Redistributions in binary form must reproduce the above copyright
- #    notice, this list of conditions and the following disclaimer in the
- #    documentation and/or other materials provided with the distribution.
- #  * Neither the name of NVIDIA CORPORATION nor the names of its
- #    contributors may be used to endorse or promote products derived
- #    from this software without specific prior written permission.
- #
- # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS "AS IS" AND ANY
- # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- # PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- # CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- # PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- # PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- # OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- **************************************************************************/
-
 #include "Scene/SceneDefines.slangh"
 #include "Utils/Math/MathConstants.slangh"
 
@@ -67,13 +39,15 @@ struct SpatialReuseGIPass
 
     static const float FLT_LARGE = 1e20f;
     static const uint kNeighborCount = 5;
+    static const uint kInitialRadius = 30.f;
+    static const uint kRadiusMultipier = 1.2f;
 
     bool evalSegmentVisibility(float3 pos, float3 endPoint)
     {
         float3 offset = endPoint - pos;
         float tMax = length(offset);
         float3 dir = offset / tMax;
-        const Ray ray = Ray(pos, dir, 0.001f, 0.999 * tMax);
+        const Ray ray = Ray(pos, dir, 0.f, tMax);
         SceneRayQuery<1> sceneRayQuery;
         return sceneRayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
     }
@@ -82,7 +56,6 @@ struct SpatialReuseGIPass
 	{
         if (any(pixel >= gFrameDim)) return;
 
-        gDebug[pixel] = float4(0, 0, 0, 1);
 		// Get index for the structured buffer access.
 		uint bufferIndex = getBufferIndex(pixel, gFrameDim);
 
@@ -107,8 +80,8 @@ struct SpatialReuseGIPass
             return;
 
         SampleGI currLightSample = currentReservoir.sample;
-        float currReservoirTargetPDF = luminance(currLightSample.Le);
 
+        float currReservoirTargetPDF = luminance(currLightSample.Le);
         outputReservoir.update(currentReservoir, currReservoirTargetPDF, sg);
 
         float3 rayOrigin = computeRayOrigin(surfaceData.position, surfaceData.normal);
@@ -116,12 +89,15 @@ struct SpatialReuseGIPass
         TinyUniformSampleGenerator sg2 = sg;
 
         uint validNeighborFlags = 0;
+        float radiusCache[kNeighborCount] = {};
+        float radius = kInitialRadius;
         [unroll]
         for (int i = 0; i < kNeighborCount; i++)
-		{
+        {
+            radiusCache[i] = radius;
             // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 0.1f * gFrameDim.x);
             // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 300.0f);
-            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 30.0f);
+            uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, radius);
 
 			// Discard pixel if out of bounds
 			if(any(neighborPixel >= gFrameDim) || any(neighborPixel < 0))
@@ -130,14 +106,14 @@ struct SpatialReuseGIPass
             uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
             ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
 
-            if (neighborReservoir.M == 0.f)
-                continue;
-
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
             if (!neighborSurfaceData.isValid())
                 continue;
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, 0.9f, 0.1f))
+            if (neighborReservoir.M == 0.f)
+                continue;
+
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, 0.1f, 0.95f))
                 continue;
 
             SampleGI neighborLightSample = neighborReservoir.sample;
@@ -177,14 +153,14 @@ struct SpatialReuseGIPass
             float jacobian = r1q2LenSq * cosPhiB <= 0.f ? 0.f : clamp(q1q2LenSq * cosPhiA / (r1q2LenSq * cosPhiB), 0.f, FLT_LARGE);
             neighborReservoirTargetPDF *= jacobian;
 
-            neighborReservoir.M = min(300, neighborReservoir.M);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 
             validNeighborFlags |= (1u << i);
+            radius = min(radius * kRadiusMultipier, 0.1f * gFrameDim.y);
         }
 
         float targetPdf = luminance(outputReservoir.sample.Le);
-        float Z = 0.f;
+        uint Z = 0;
 
         if (targetPdf > 0.f) {
             if (evalSegmentVisibility(surfaceData.position, outputReservoir.sample.samplePoint))
@@ -195,24 +171,21 @@ struct SpatialReuseGIPass
             {
                 if (!(validNeighborFlags & (1u << i)))
                     continue;
-
-                // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2, 0.1f * gFrameDim.x);
-                uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2, 30.0f);
+                uint2 neighborPixel = getRandomNeighborPixel(pixel, sg2, radiusCache[i]);
 
                 uint neighborBufferIndex = getBufferIndex(neighborPixel, gFrameDim);
                 SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
                 // Evaluate visibility
-                if (evalSegmentVisibility(neighborSurfaceData.position, outputReservoir.sample.samplePoint)) {
+                if (evalSegmentVisibility(computeRayOrigin(neighborSurfaceData.position, neighborSurfaceData.normal), outputReservoir.sample.samplePoint)) {
                     ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
-                    neighborReservoir.M = min(300, neighborReservoir.M);
                     Z += neighborReservoir.M;
                 }
             }
         }
-        float m = Z > 0.f ? 1.f / Z : 0.f;
-        outputReservoir.W = outputReservoir.W > 0.f ? outputReservoir.weightSum / (outputReservoir.M * outputReservoir.W) : 0.f;
-        // outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / (outputReservoir.W) : 0.f;
+        float m = Z > 0 ? 1.f / Z : 0.f;
+        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / (outputReservoir.W) : 0.f;
+        outputReservoir.M = min(outputReservoir.M, 300);
 		// Store reservoir
         gOutReservoirsGI[bufferIndex] = outputReservoir.pack();
 	}

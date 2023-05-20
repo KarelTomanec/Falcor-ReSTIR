@@ -170,7 +170,7 @@ struct ShadePass
 
             float3 directLight = evalDirectLight(pixel, sd, bsdf, sg);
             float3 indirectLight = evalIndirectLight(pixel, sd, bsdf, sg);
-            // color += directLight;
+            color += directLight;
             color += indirectLight;
 		} else {
 			// Background pixel.
