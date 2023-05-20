@@ -5,7 +5,7 @@ import Rendering.Materials.IBSDF;
 import LightSampler;
 
 /** This structure is used to pack the reservoir data into a more efficient format using only 16 bytes.
-*/
+ */
 struct PackedReservoir
 {
     PackedMinimalLightSample packedLightSample; ///< Packed minimal light sample
@@ -13,6 +13,9 @@ struct PackedReservoir
     uint M;                                     ///< Packed number of samples
 };
 
+/** This structure represents a reservoir that holds one sample selected from a larger set. It also stores metadata about how it was constructed, specifically the number
+ *  of candidates evaluated during its construction (M), their total weight (weightSum) and the current weight of the reservoir (W).
+ */
 struct Reservoir
 {
     MinimalLightSample sample;      ///< Output light sample.
@@ -30,12 +33,13 @@ struct Reservoir
         this.M = 0;
     }
 
-    /**  Updates the reservoir with a new light sample.
+    /** Updates the reservoir with a new light sample.
      *
      * \param[in] lightSample New minimal light sample to consider for addition in the reservoir.
-     * \param[in] targetPDF Target PDF of the light sample (doesn't have to be normalize).
+     * \param[in] targetPDF Target PDF of the light sample (doesn't have to be normalized).
      * \param[in] sourcePDF Source PDF of the light sample [0, 1].
      * \param[in, out] sg Sample generator to be used for selection process.
+     *
      * \return Indicates whether the new sample was selected for the reservoir.
      */
     [mutating]
@@ -57,6 +61,10 @@ struct Reservoir
     /** Combine the current reservoir with another reservoir (merge).
      *
      * \param[in, out] reservoir Another reservoir to consider for merging.
+     * \param[in] targetPDF Target PDF of the light sample (doesn't have to be normalized).
+     * \param[in, out] sg Sample generator to be used for selection process.
+     *
+     * \return Indicates whether the new sample was selected for the reservoir.
      */
 	[mutating]
 	bool update<S : ISampleGenerator>(inout Reservoir reservoir, const float targetPDF, inout S sg)
@@ -75,6 +83,17 @@ struct Reservoir
 		return isSelected;
 	}
 
+    /**
+     * Unpacks a PackedReservoir into a Reservoir.
+     *
+     * This function unpacks a PackedReservoir, transforming its compact data into the
+     * corresponding data in a Reservoir. If the unpacked weight is infinite or NaN,
+     * the weight and count of samples are reset to zero.
+     *
+     * \param[in] packedReservoir The packed reservoir to be unpacked.
+     *
+     * \return Reservoir The unpacked reservoir.
+     */
 	static Reservoir unpack(const PackedReservoir packedReservoir)
 	{
 		Reservoir reservoir;
@@ -90,8 +109,13 @@ struct Reservoir
         }
 
 		return reservoir;
-	}
+    }
 
+    /**
+     * Packs the current Reservoir into a PackedReservoir.
+     *
+     * \return PackedReservoir The packed version of the current reservoir.
+     */
 	PackedReservoir pack()
 	{
         PackedReservoir packedReservoir;
