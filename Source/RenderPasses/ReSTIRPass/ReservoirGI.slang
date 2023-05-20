@@ -25,7 +25,7 @@ struct SampleGI
 
     static SampleGI unpack(const PackedSampleGI packedSample)
     {
-        SampleGI sample;
+        SampleGI sample = {};
 
         sample.surfacePoint = asfloat(packedSample.surfaceGeometry.xyz);
         sample.surfaceNormal = decodeNormal2x16(packedSample.surfaceGeometry.w);

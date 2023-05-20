@@ -104,6 +104,7 @@ struct SpatialReusePass
         uint validNeighborFlags = 0;
 
 #if BIASED
+        // Standard combination of multiple reservoirs reservoirs (Algorithm 4 from the original paper):
 		[unroll]
 		for(uint i = 0; i < SPATIAL_REUSE_SAMPLE_COUNT; i++)
 		{
@@ -130,8 +131,9 @@ struct SpatialReusePass
             float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(neighborLightSample, viewVec);
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
         }
-		outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M ) / outputReservoir.W : 0.f;
+        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / outputReservoir.W : 0.f;
 #elif UNBIASED_NAIVE
+        // Naive unbiased combination of multiple reservoirs (Algorithm 6 from the original ReSTIR paper):
         TinyUniformSampleGenerator sg1 = sg;
         TinyUniformSampleGenerator sg2 = sg;
 		[unroll]
@@ -187,6 +189,7 @@ struct SpatialReusePass
         float m = Z > 0.f ? 1.f / float(Z) : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #elif UNBIASED_MIS
+        // Unbiased combination of multiple reservoirs using MIS (Algorithm 1 from the original ReSTIR paper's supplemental document):
 		int selectedSample = -1;
 		TinyUniformSampleGenerator sg1 = sg;
 		TinyUniformSampleGenerator sg2 = sg;

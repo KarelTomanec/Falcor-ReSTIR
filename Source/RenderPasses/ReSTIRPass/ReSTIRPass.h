@@ -145,7 +145,7 @@ private:
         bool        testInitialSampleVisibility = true;
         uint32_t    emissiveLightCandidateCount = 32; // = 24
         uint32_t    envLightCandidateCount = 0; // = 8
-        uint32_t    analyticLightCandidateCount = 0;
+        uint32_t    analyticLightCandidateCount = 0; // = 1
 
         BiasCorrection biasCorrection = BiasCorrection::Off;
         float       normalThreshold = 0.9f;

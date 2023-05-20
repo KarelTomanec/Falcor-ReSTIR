@@ -389,6 +389,7 @@ struct LightSampler
         return lightSample;
     }
 
+    /// Retrieves the radiance of a light sample given a minimal light sample.
     float3 getLightSampleRadiance(const MinimalLightSample minLightSample)
     {
         switch (minLightSample.getType())

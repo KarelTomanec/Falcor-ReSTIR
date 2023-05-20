@@ -1,31 +1,3 @@
-/***************************************************************************
- # Copyright (c) 2015-21, NVIDIA CORPORATION. All rights reserved.
- #
- # Redistribution and use in source and binary forms, with or without
- # modification, are permitted provided that the following conditions
- # are met:
- #  * Redistributions of source code must retain the above copyright
- #    notice, this list of conditions and the following disclaimer.
- #  * Redistributions in binary form must reproduce the above copyright
- #    notice, this list of conditions and the following disclaimer in the
- #    documentation and/or other materials provided with the distribution.
- #  * Neither the name of NVIDIA CORPORATION nor the names of its
- #    contributors may be used to endorse or promote products derived
- #    from this software without specific prior written permission.
- #
- # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS "AS IS" AND ANY
- # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- # PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- # CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- # PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- # PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- # OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- **************************************************************************/
-
 #include "Scene/SceneDefines.slangh"
 #include "Utils/Math/MathConstants.slangh"
 
@@ -148,7 +120,7 @@ struct DecoupledPipelinePass
             // Create a sample generator based on the position of the tile, so it's the same for all the pixels in the same tile.
             TinyUniformSampleGenerator tileSg = TinyUniformSampleGenerator(screenTilePosition, gFrameCount);
 
-            // Get random tile index for the screen tile. NOTE: sampleNext1D() -> [0, 1)
+            // Get random tile index for the screen tile. sampleNext1D() -> [0, 1)
             uint tileIndex = uint(sampleNext1D(tileSg) * kLightTileCount);
 
             // Create a sample generator that is unique for each pixel.
@@ -156,7 +128,7 @@ struct DecoupledPipelinePass
 
             bool initialSampleFound = false;
 
-            // Sample emissive geometry:
+            // Sample emissive geometry
             if (kEmissiveLightCandidateCount > 0)
             {
                 uint lightTileOffset = tileIndex * kLightTileSize;
@@ -186,7 +158,7 @@ struct DecoupledPipelinePass
                     initialSampleFound = true;
             }
 
-            // Sample environment map:
+            // Sample environment map
             if (kEnvironmentLightCandidateCount > 0)
             {
                 uint lightTileOffset = tileIndex * kLightTileSize + kLightTileEmissiveSampleCount;
@@ -216,7 +188,7 @@ struct DecoupledPipelinePass
                     initialSampleFound = true;
             }
 
-            // Sample analytic lights:
+            // Sample analytic lights
             if (kAnalyticLightCandidateCount > 0)
             {
                 uint lightTileOffset = tileIndex * kLightTileSize + kLightTileEmissiveSampleCount + kLightTileEnvironmentSampleCount;
@@ -249,21 +221,26 @@ struct DecoupledPipelinePass
 
             // Test visibility by tracing a shadow ray.
             LightSample currentReservoirLightSample;
-            if (initialSampleFound) {
+            if (initialSampleFound)
+            {
                 currentReservoirLightSample = gLightSampler.getLightSample(currentReservoir.sample);
                 bool visible = surfaceData.evalVisibility(currentReservoirLightSample);
-                if (visible) {
+                if (visible)
+                {
                     currentReservoir.W = currentReservoir.W > 0.f ? (currentReservoir.weightSum / currentReservoir.M) / currentReservoir.W : 0.f;
-                } else {
+                }
+                else
+                {
                     currentReservoir.W = 0.0f;
                 }
-            } else {
+            }
+            else
+            {
                 currentReservoir.W = 0.0f;
             }
 
 
             // TEMPORAL SAMPLE -------------------------------------------------------------------------------------------
-
 
             // Set history limit for the temporal reuse.
             uint historyLimit = TEMPORAL_MAX_HISTORY_LENGTH * currentReservoir.M;
@@ -372,14 +349,14 @@ struct DecoupledPipelinePass
                 shadingWeight[0] = currentReservoir.M * currentReservoir.W * currentReservoirTargetPDF;
                 outputReservoir.update(currentReservoir, currentReservoirTargetPDF, sg);
             }
-
-            if (temporalNeighborFound) {
-                float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(temporalReservoirLightSample, viewVec);
-                shadingWeight[1] = temporalReservoir.M * temporalReservoir.W * neighborReservoirTargetPDF;
-                outputReservoir.update(temporalReservoir, neighborReservoirTargetPDF, sg);
+            if (temporalNeighborFound)
+                {
+                float temporalReservoirTargetPDF = surfaceData.evalTargetPDF(temporalReservoirLightSample, viewVec);
+                shadingWeight[1] = temporalReservoir.M * temporalReservoir.W * temporalReservoirTargetPDF;
+                outputReservoir.update(temporalReservoir, temporalReservoirTargetPDF, sg);
             }
-
-            if (spatioTemporalNeighborFound) {
+            if (spatioTemporalNeighborFound)
+            {
                 float neighborReservoirTargetPDF = surfaceData.evalTargetPDF(spatiotemporalReservoirLightSample, viewVec);
                 shadingWeight[2] = spatioTemporalReservoir.M * spatioTemporalReservoir.W * neighborReservoirTargetPDF;
                 outputReservoir.update(spatioTemporalReservoir, neighborReservoirTargetPDF, sg);
@@ -397,7 +374,6 @@ struct DecoupledPipelinePass
 
             bool found[] = { initialSampleFound, temporalNeighborFound, spatioTemporalNeighborFound };
             Reservoir reservoirs[] = { outputReservoir, temporalReservoir, spatioTemporalReservoir };
-            // gDebug[pixel] = float4(shadingWeight[0], shadingWeight[1], shadingWeight[2], 1.f);
 
             for (uint i = 0; i < N; i++) {
                 if (!found[i])
@@ -430,9 +406,6 @@ struct DecoupledPipelinePass
 
                 if (valid)
                 {
-                    // Create sample generator.
-                    TinyUniformSampleGenerator sg = TinyUniformSampleGenerator(pixel, gFrameCount);
-
                     sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
                     float3 diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
 
