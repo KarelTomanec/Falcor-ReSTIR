@@ -46,7 +46,6 @@ extern "C" FALCOR_API_EXPORT void getPasses(Falcor::RenderPassLibrary& lib)
 
 namespace
 {
-
     const std::string kCreateLightTilesPassFilename = "RenderPasses/ReSTIRPass/CreateLightTiles.cs.slang";
     const std::string kLoadSurfaceDataPassFilename = "RenderPasses/ReSTIRPass/LoadSurfaceDataPass.cs.slang";
     const std::string kGenerateInitialCandidatesPassFilename = "RenderPasses/ReSTIRPass/GenerateInitialCandidates.cs.slang";
@@ -104,7 +103,7 @@ namespace
         { (uint32_t)ReSTIRPass::Mode::TemporalResampling, "Temporal resampling only" },
         { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResampling, "Spatiotemporal resampling" },
         { (uint32_t)ReSTIRPass::Mode::DecoupledPipeline, "Decoupled pipeline" },
-        { (uint32_t)ReSTIRPass::Mode::ReSTIRGI, "ReSTIRDI + ReSTIRGI (in progress)" },
+        { (uint32_t)ReSTIRPass::Mode::ReSTIRGI, "ReSTIRDI + ReSTIRGI (EXPERIMENTAL)" },
     };
 
     Gui::DropdownList kBiasCorrectionList =
@@ -178,14 +177,6 @@ ReSTIRPass::ReSTIRPass(const Dictionary& dict)
 
 void ReSTIRPass::parseDictionary(const Dictionary& dict)
 {
-    for (const auto& [key, value] : dict)
-    {
-        //if (key == kMaxBounces) mMaxBounces = value;
-        //else if (key == kComputeDirect) mComputeDirect = value;
-        //else if (key == kUseImportanceSampling) mUseImportanceSampling = value;
-        //else if (key == kEmissiveSampler) mStaticParams.emissiveSampler = value;
-        //else logWarning("Unknown field '{}' in MinimalPathTracer dictionary.", key);
-    }
 }
 
 Dictionary ReSTIRPass::getScriptingDictionary()
@@ -200,7 +191,6 @@ RenderPassReflection ReSTIRPass::reflect(const CompileData& compileData)
     const uint2 sz = RenderPassHelpers::calculateIOSize(mOutputSizeSelection, mFixedOutputSize, compileData.defaultTexDims);
 
     addRenderPassInputs(reflector, kInputChannels);
-    //addRenderPassOutputs(reflector, kOutputChannels, ResourceBindFlags::UnorderedAccess, sz);
     addRenderPassOutputs(reflector, kOutputChannels);
 
     return reflector;
@@ -338,7 +328,6 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
     bool temporalResampling = (mReSTIRParams.mode == Mode::TemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline);
     bool spatialResampling = (mReSTIRParams.mode == Mode::SpatialResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline);
 
-
     dirty |= widget.dropdown("Mode", kModeList, reinterpret_cast<uint32_t&>(mReSTIRParams.mode));
 
     if (auto group = widget.group("Precomputed light tiles", false))
@@ -369,7 +358,7 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
         group.tooltip("Performs a visibility test for the selected initial candidate.");
 
         dirty |= group.checkbox("Use Checkerboard Rendering", mReSTIRParams.useCheckerboarding);
-        group.tooltip("");
+        group.tooltip("Create initial candidates in a checkerboard pattern.");
     }
 
     if (temporalResampling)
@@ -385,8 +374,12 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
     {
         if (auto group = widget.group("Spatial resampling", false))
         {
-            dirty |= group.var("Iterations", mReSTIRParams.spatialIterationCount, kMinSpatialIterationCount, kMaxSpatialIterationCount);
-            group.tooltip("Number of spatial reuse iterations.");
+
+            if (mReSTIRParams.mode != Mode::DecoupledPipeline)
+            {
+                dirty |= group.var("Iterations", mReSTIRParams.spatialIterationCount, kMinSpatialIterationCount, kMaxSpatialIterationCount);
+                group.tooltip("Number of spatial reuse iterations.");
+            }
 
             dirty |= group.var("Sample count", mReSTIRParams.spatialReuseSampleCount, kMinSpatialReuseSampleCount, kMaxSpatialReuseSampleCount);
             group.tooltip("Number of neighbor samples considered for resampling.");
@@ -406,8 +399,11 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
     {
         if (auto group = widget.group("Resampling options", false))
         {
-            dirty |= group.dropdown("Bias correction", kBiasCorrectionList, reinterpret_cast<uint32_t&>(mReSTIRParams.biasCorrection));
-            group.tooltip("Type of correction to prevent the occurrence of bias.");
+            if (mReSTIRParams.mode != Mode::DecoupledPipeline)
+            {
+                dirty |= group.dropdown("Bias correction", kBiasCorrectionList, reinterpret_cast<uint32_t&>(mReSTIRParams.biasCorrection));
+                group.tooltip("Type of correction to prevent the occurrence of bias.");
+            }
 
             dirty |= group.var("Depth threshold", mReSTIRParams.depthThreshold, 0.f, 1.f);
             group.tooltip("Depth threshold for sample reuse.");
