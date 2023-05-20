@@ -11,17 +11,20 @@ import Utils.Math.PackedFormats;
 
 struct PackedDirectLightSample ///< 16 bytes
 {
-    uint2 direction;
-    uint Le;
-    uint distance;
+    uint2 direction; ///< Packed direction vector of the light source.
+    uint Le;         ///< Packed intensity of the light source.
+    uint distance;   ///< Packed distance from the surface point to the light source.
 }
 
 struct DirectLightSample
 {
-    float3 direction;
-    float3 Le;
-    float distance;
+    float3 direction; ///< The direction vector of the light source.
+    float3 Le;        ///< The intensity of the light source.
+    float distance;   ///< The distance from the surface point to the light source.
 
+    /** Packs the direct light sample data into a `PackedDirectLightSample` struct.
+     *  Uses various encoding methods to convert data to uint format.
+     */
     PackedDirectLightSample pack()
     {
         PackedDirectLightSample packedDirectLightSample;
@@ -29,11 +32,13 @@ struct DirectLightSample
         packedDirectLightSample.direction = encodeNormal3x16(this.direction);
         packedDirectLightSample.Le = encodeLogLuvHDR(this.Le);
         packedDirectLightSample.distance = asuint(this.distance);
-        // packedDirectLightSample._pad0 = 0u;
 
         return packedDirectLightSample;
     }
 
+    /** Unpacks the data from a `PackedDirectLightSample` struct into a `DirectLightSample` struct.
+     *  Uses various decoding methods to convert data back from uint format.
+     */
     static DirectLightSample unpack(const PackedDirectLightSample packedDirectLightSample)
     {
         DirectLightSample directLightSample;
@@ -48,8 +53,8 @@ struct DirectLightSample
 
 struct PackedMinimalLightSample ///< 8 bytes
 {
-    uint typeIndex;
-    uint position;
+    uint typeIndex; ///< An unsigned integer storing both the type and index of the light.
+    uint position;  ///< An unsigned integer representation of the position of the light in the environment.
 }
 
 struct MinimalLightSample
@@ -59,26 +64,30 @@ struct MinimalLightSample
     static const uint kTypeMask = ~kIndexMask;
     static const uint kInvalidSample = 0xffffffff;
 
+    /// Enum class to represent the type of the light.
     enum class Type
     {
-        EmissiveGeometry = (0 << kLightTypeOffset),
-        Environment = (1 << kLightTypeOffset),
-        Analytic = (2 << kLightTypeOffset),
+        EmissiveGeometry = (0 << kLightTypeOffset), ///< Represents emissive geometry light sources.
+        Environment = (1 << kLightTypeOffset),      ///< Represents environment light sources.
+        Analytic = (2 << kLightTypeOffset),         ///< Represents analytic light sources.
     };
 
-    uint typeIndex;
-    float2 position;
+    uint typeIndex;  ///< Unsigned integer that stores both the type and the index of the light.
+    float2 position; ///< Floating point vector storing the position of the light (coordinates inside texel or triangle)
 
+    /// Initialization method for the MinimalLightSample structure.
     __init()
     {
         this.typeIndex = kInvalidSample;
     }
 
+    /// Checks if the light sample is valid or not.
     bool isValid()
     {
         return typeIndex != kInvalidSample;
     }
 
+    // Methods to create different types of MinimalLightSample instances. Each of them sets typeIndex accordingly.
     static MinimalLightSample createEmissive(const uint index, const float2 position)
     {
         MinimalLightSample lightSample = {};
@@ -103,6 +112,7 @@ struct MinimalLightSample
         return lightSample;
     }
 
+    /// Method to convert (pack) the MinimalLightSample into a PackedMinimalLightSample.
     PackedMinimalLightSample pack()
     {
         PackedMinimalLightSample packedLightSample;
@@ -111,6 +121,7 @@ struct MinimalLightSample
         return packedLightSample;
     }
 
+    /// Method to convert (unpack) a PackedMinimalLightSample back into a MinimalLightSample.
     static MinimalLightSample unpack(const PackedMinimalLightSample packedLightSample)
     {
         MinimalLightSample lightSample = {};
@@ -119,21 +130,25 @@ struct MinimalLightSample
         return lightSample;
     }
 
+    /// Returns the type of the light sample.
     MinimalLightSample::Type getType()
     {
         return MinimalLightSample::Type(typeIndex & kTypeMask);
     }
 
+    /// Returns the index of the light sample in alias table
     uint getIndex()
     {
         return typeIndex & kIndexMask;
     }
 
+    /// Returns the position of the light sample.
     float2 getPosition()
     {
         return position;
     }
 
+    /// Returns the direction to the environment light sample.
     float3 getEnvironmentDir()
     {
         // Get index of the texel in environment map
@@ -151,20 +166,21 @@ struct MinimalLightSample
 
 struct PackedLightSample ///< 32 bytes
 {
-    PackedMinimalLightSample packedMinLightSample;
-    uint pdf;
-    uint Le;
-    uint3 posDir;
-    uint normal;
+    PackedMinimalLightSample packedMinLightSample; ///< Compact representation of the minimal light sample.
+    uint pdf;                                      ///< Unsigned integer representation of the PDF of the light sample.
+    uint Le;                                       ///< Unsigned integer representation of the emission of the light sample.
+    uint3 posDir;                                  ///< Unsigned integer representation of the position/direction of the light.
+    uint normal;                                   ///< Unsigned integer representation of the normal at the light sample point.
 };
 
 struct LightSample
 {
+    /// Enum class to represent the type of the light sample.
     enum class Type
     {
-        AreaLight,
-        DistantLight,
-        PointLight,
+        AreaLight,    ///< Represents an area light source.
+        DistantLight, ///< Represents a distant light source.
+        PointLight,   ///< Represents a point light source.
     };
 
     MinimalLightSample minLightSample;  ///< Minimal light sample - type, index, position.
@@ -174,6 +190,7 @@ struct LightSample
     float pdf;                          ///< Source PDF of the light sample.
     float Le;                           ///< Emission.
 
+    /// Method to convert (pack) the LightSample into a PackedLightSample.
     PackedLightSample pack()
     {
         PackedLightSample packedLightSample;
@@ -187,6 +204,7 @@ struct LightSample
         return packedLightSample;
     }
 
+    /// Method to convert (unpack) a PackedLightSample back into a LightSample.
     static LightSample unpack(const PackedLightSample packedLightSample)
     {
         LightSample lightSample;
@@ -220,6 +238,7 @@ struct LightSample
         return lightSample;
     }
 
+    /// Returns the distance from a given position to the light sample.
     float getDistanceToSample(const float3 position) {
         switch (lightType)
         {
@@ -232,6 +251,7 @@ struct LightSample
         return 0;
     }
 
+    /// Returns the direction from a given position to the light sample.
     float3 getDirToSample(const float3 position) {
         switch (lightType)
         {
@@ -247,19 +267,17 @@ struct LightSample
 
 struct LightSampler
 {
-
+    /// Weights of light samples for different types of light sources.
     static const float emissiveGeometrySampleWeight = float(LIGHT_TILE_EMISSIVE_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
     static const float environmentSampleWeight = float(LIGHT_TILE_ENVIRONMENT_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
     static const float analyticLightSampleWeight = float(LIGHT_TILE_ANALYTIC_SAMPLE_COUNT) / float(LIGHT_TILE_SIZE);
 
+    AliasTable emissiveGeometryAliasTable;   ///< Alias table for emissive geometry light sampling.
+    Buffer<float> environmentLuminanceTable; ///< Buffer to store luminance for environment light sampling.
+    AliasTable environmentAliasTable;        ///< Alias table for environment light sampling.
+    AliasTable analyticLightsAliasTable;     ///< Alias table for analytic light sampling.
 
-    AliasTable emissiveGeometryAliasTable;
-
-    Buffer<float> environmentLuminanceTable;
-    AliasTable environmentAliasTable;
-
-    AliasTable analyticLightsAliasTable;
-
+    /// Methods to sample different types of lights from alias tables.
     LightSample sampleEmissiveGeometry<S : ISampleGenerator>(inout S sg)
     {
         float binRandom = sampleNext1D(sg);
@@ -287,6 +305,7 @@ struct LightSampler
         return getAnalyticLightSample(minLightSample);
     }
 
+    /// Retrieves a light sample based on a given minimal light sample.
     LightSample getLightSample(const MinimalLightSample minLightSample)
     {
 
@@ -303,6 +322,7 @@ struct LightSampler
         return lightSample;
     }
 
+    /// Methods to get specific types of light samples based on a minimal light sample.
     LightSample getEmissiveLightSample(const MinimalLightSample minLightSample)
     {
         LightSample lightSample;
