@@ -23,9 +23,14 @@ import SurfaceData;
 import HelperFunctions;
 import LightSampler;
 
-
 struct SpatialReuseGIPass
 {
+    static const float FLT_LARGE = 1e20f;
+    static const uint kMCap = GI_SPATIAL_MCAP;
+    static const uint kNeighborCount = GI_SPATIAL_SAMPLE_COUNT;
+    static const float kDepthThreshold = GI_DEPTH_THRESHOLD;
+    static const float kNormalThreshold = GI_NORMAL_THRESHOLD;
+
 	uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
@@ -37,10 +42,6 @@ struct SpatialReuseGIPass
     // Debug:
     RWTexture2D<float4> gDebug;
 
-    static const float FLT_LARGE = 1e20f;
-    static const uint kNeighborCount = 5;
-    static const uint kInitialRadius = 30.f;
-    static const uint kRadiusMultipier = 1.2f;
 
     bool evalSegmentVisibility(float3 pos, float3 endPoint)
     {
@@ -90,13 +91,11 @@ struct SpatialReuseGIPass
 
         uint validNeighborFlags = 0;
         float radiusCache[kNeighborCount] = {};
-        float radius = kInitialRadius;
+        float radius = 0.1f * gFrameDim.y;
         [unroll]
         for (int i = 0; i < kNeighborCount; i++)
         {
             radiusCache[i] = radius;
-            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 0.1f * gFrameDim.x);
-            // uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, 300.0f);
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, radius);
 
 			// Discard pixel if out of bounds
@@ -108,13 +107,22 @@ struct SpatialReuseGIPass
 
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
             if (!neighborSurfaceData.isValid())
+            {
+                radius *= 0.5f;
                 continue;
+            }
 
             if (neighborReservoir.M == 0.f)
+            {
+                radius *= 0.5f;
                 continue;
+            }
 
-            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, 0.1f, 0.95f))
+            if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, kDepthThreshold, kNormalThreshold))
+            {
+                radius *= 0.5f;
                 continue;
+            }
 
             SampleGI neighborLightSample = neighborReservoir.sample;
             float neighborReservoirTargetPDF = luminance(neighborLightSample.Le);
@@ -136,8 +144,10 @@ struct SpatialReuseGIPass
             float cosB = dot(neighborLightSample.surfaceNormal, q1q2);
             float cosPhiA = -dot(r1q2, neighborLightSample.sampleNormal);
             float cosPhiB = -dot(q1q2, neighborLightSample.sampleNormal);
-            if (cosB <= 0.f || cosPhiB <= 0.f)
+            if (cosB <= 0.f || cosPhiB <= 0.f) {
+                radius *= 0.5f;
                 continue;
+            }
 
             if (cosA <= 0.f || cosPhiA <= 0.f || r1q2LenSq <= 0.f || q1q2LenSq <= 0.f) {
 
@@ -156,7 +166,6 @@ struct SpatialReuseGIPass
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
 
             validNeighborFlags |= (1u << i);
-            radius = min(radius * kRadiusMultipier, 0.1f * gFrameDim.y);
         }
 
         float targetPdf = luminance(outputReservoir.sample.Le);
@@ -185,7 +194,7 @@ struct SpatialReuseGIPass
         }
         float m = Z > 0 ? 1.f / Z : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / (outputReservoir.W) : 0.f;
-        outputReservoir.M = min(outputReservoir.M, 300);
+        outputReservoir.M = min(outputReservoir.M, kMCap);
 		// Store reservoir
         gOutReservoirsGI[bufferIndex] = outputReservoir.pack();
 	}

@@ -103,7 +103,7 @@ namespace
         { (uint32_t)ReSTIRPass::Mode::TemporalResampling, "Temporal resampling only" },
         { (uint32_t)ReSTIRPass::Mode::SpatiotemporalResampling, "Spatiotemporal resampling" },
         { (uint32_t)ReSTIRPass::Mode::DecoupledPipeline, "Decoupled pipeline" },
-        { (uint32_t)ReSTIRPass::Mode::ReSTIRGI, "ReSTIRDI + ReSTIRGI (EXPERIMENTAL)" },
+        { (uint32_t)ReSTIRPass::Mode::ReSTIRGI, "ReSTIRDI + ReSTIRGI (Experimental)" },
     };
 
     Gui::DropdownList kBiasCorrectionList =
@@ -147,6 +147,15 @@ namespace
 
     const uint32_t kMinLightTileSize = 128;
     const uint32_t kMaxLightTileSize = 8096;
+
+    const uint32_t kMinGITemporalMCap = 1;
+    const uint32_t kMaxGITemporalMCap = 100;
+    const uint32_t kMinGISpatialMCap = 1;
+    const uint32_t kMaxGISpatialMCap = 1000;
+    const uint32_t kMinGISpatialIterationCount = 1;
+    const uint32_t kMaxGISpatialIterationCount = 5;
+    const uint32_t kMinGISpatialReuseSampleCount = 1;
+    const uint32_t kMaxGISpatialReuseSampleCount = 50;
 
 }
 
@@ -297,7 +306,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         createDirectSamplesPass(pRenderContext, renderData);
         tracePass(pRenderContext, renderData, *mpTracePass);
         temporalReuseGIPass(pRenderContext, renderData);
-        for (size_t iteration = 0; iteration < 1; iteration++)
+        for (size_t iteration = 0; iteration < mReSTIRParams.giSpatialIterationCount; iteration++)
         {
             spatialReuseGIPass(pRenderContext, renderData);
         }
@@ -325,8 +334,8 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
-    bool temporalResampling = (mReSTIRParams.mode == Mode::TemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline);
-    bool spatialResampling = (mReSTIRParams.mode == Mode::SpatialResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline);
+    bool temporalResampling = (mReSTIRParams.mode == Mode::TemporalResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline || mReSTIRParams.mode == Mode::ReSTIRGI);
+    bool spatialResampling = (mReSTIRParams.mode == Mode::SpatialResampling || mReSTIRParams.mode == Mode::SpatiotemporalResampling || mReSTIRParams.mode == Mode::DecoupledPipeline || mReSTIRParams.mode == Mode::ReSTIRGI);
 
     dirty |= widget.dropdown("Mode", kModeList, reinterpret_cast<uint32_t&>(mReSTIRParams.mode));
 
@@ -410,6 +419,31 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
 
             dirty |= group.var("Normal threshold", mReSTIRParams.normalThreshold, 0.f, 1.f);
             group.tooltip("Normal threshold for sample reuse.");
+        }
+    }
+
+    if(mReSTIRParams.mode == Mode::ReSTIRGI)
+    {
+        if (auto group = widget.group("ReSTIR GI", false))
+        {
+            dirty |= group.var("Temporal M-cap", mReSTIRParams.giTemporalMCap, kMinGITemporalMCap, kMaxGITemporalMCap);
+            group.tooltip("This cap helps to curtail the influence of temporal samples partially, providing new candidates with a better opportunity to be chosen during resampling. Implementing a reasonable M-cap is also necessary to limit correlations between frames.");
+
+            dirty |= group.var("Spatial M-cap", mReSTIRParams.giSpatialMCap, kMinGISpatialMCap, kMaxGISpatialMCap);
+            group.tooltip("This cap helps to curtail the influence of spatial samples partially, providing new candidates with a better opportunity to be chosen during resampling. Implementing a reasonable M-cap is also necessary to limit correlations between frames.");
+
+            dirty |= group.var("Spatial Iterations", mReSTIRParams.giSpatialIterationCount, kMinGISpatialIterationCount, kMaxGISpatialIterationCount);
+            group.tooltip("Number of spatial reuse iterations.");
+
+            dirty |= group.var("Spatial Sample Count", mReSTIRParams.giSpatialReuseSampleCount, kMinGISpatialReuseSampleCount, kMaxGISpatialReuseSampleCount);
+            group.tooltip("Number of neighbor samples considered for resampling.");
+
+            dirty |= group.var("Depth threshold", mReSTIRParams.giNormalThreshold, 0.f, 1.f);
+            group.tooltip("Depth threshold for sample reuse.");
+
+            dirty |= group.var("Normal threshold", mReSTIRParams.giDepthThreshold, 0.f, 1.f);
+            group.tooltip("Normal threshold for sample reuse.");
+
         }
     }
 
@@ -1418,6 +1452,13 @@ Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner
 
     defines.add("USE_CHECKERBOARDING", owner.mReSTIRParams.useCheckerboarding ? "1" : "0");
     defines.add("SPATIAL_VISIBILITY_THRESHOLD", std::to_string(owner.mReSTIRParams.spatialVisibilityThreshold));
+
+    // ReSTIR GI defines
+    defines.add("GI_TEMPORAL_MCAP", std::to_string(owner.mReSTIRParams.giTemporalMCap));
+    defines.add("GI_SPATIAL_MCAP", std::to_string(owner.mReSTIRParams.giSpatialMCap));
+    defines.add("GI_SPATIAL_SAMPLE_COUNT", std::to_string(owner.mReSTIRParams.giSpatialReuseSampleCount));
+    defines.add("GI_DEPTH_THRESHOLD", std::to_string(owner.mReSTIRParams.giDepthThreshold));
+    defines.add("GI_NORMAL_THRESHOLD", std::to_string(owner.mReSTIRParams.giNormalThreshold));
 
     return defines;
 }
