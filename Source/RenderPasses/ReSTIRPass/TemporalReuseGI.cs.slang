@@ -26,6 +26,10 @@ import LightSampler;
 
 struct TemporalReuseGIPass
 {
+    static const uint kMCap = GI_TEMPORAL_MCAP;
+    static const float kMaxOffset = 5.f;
+    static const uint kAttemptCount = 1;
+
 	uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
@@ -43,8 +47,6 @@ struct TemporalReuseGIPass
     // Debug:
     RWTexture2D<float4> gDebug;
 
-    static const float kMaxOffset = 5.f;
-    static const uint kAttemptCount = 1;
 
 	void execute(const uint2 pixel)
 	{
@@ -100,7 +102,7 @@ struct TemporalReuseGIPass
                 continue;
 
             // Compare the difference in camera distance, and the angle between normals.
-            if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth, 0.1f, 0.95f))
+            if (!isValidNeighbor(surfaceData.normal, prevSurfaceData.normal, surfaceData.depth, prevSurfaceData.depth, kDepthThreshold, kNormalThreshold))
                 continue;
 
             neighborFound = true;
@@ -119,7 +121,7 @@ struct TemporalReuseGIPass
         ReservoirGI prevReservoir = ReservoirGI::unpack(gPrevGIReservoirs[prevBufferIndex]);
 
         // Clamp the previous frame's M.
-        prevReservoir.M = min(30, prevReservoir.M);
+        prevReservoir.M = min(prevReservoir.M, kMCap);
 
         // Standard combination of multiple reservoirs reservoirs (Algorithm 4 from the original paper):
         float prevTargetPdf = luminance(prevReservoir.sample.Le);

@@ -267,10 +267,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
     case Mode::SpatialResampling:
         loadSurfaceDataPass(pRenderContext, renderData);
         generateInitialCandidatesPass(pRenderContext, renderData);
-        for (size_t iteration = 0; iteration < mReSTIRParams.spatialIterationCount; iteration++)
-        {
-            spatialReusePass(pRenderContext, renderData);
-        }
+        spatialReusePass(pRenderContext, renderData);
         createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
@@ -285,10 +282,7 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         loadSurfaceDataPass(pRenderContext, renderData);
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
-        for (size_t iteration = 0; iteration < mReSTIRParams.spatialIterationCount; iteration++)
-        {
-            spatialReusePass(pRenderContext, renderData);
-        }
+        spatialReusePass(pRenderContext, renderData);
         createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
@@ -299,17 +293,11 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         loadSurfaceDataPass(pRenderContext, renderData);
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
-        for (size_t iteration = 0; iteration < mReSTIRParams.spatialIterationCount; iteration++)
-        {
-            spatialReusePass(pRenderContext, renderData);
-        }
+        spatialReusePass(pRenderContext, renderData);
         createDirectSamplesPass(pRenderContext, renderData);
         tracePass(pRenderContext, renderData, *mpTracePass);
         temporalReuseGIPass(pRenderContext, renderData);
-        for (size_t iteration = 0; iteration < mReSTIRParams.giSpatialIterationCount; iteration++)
-        {
-            spatialReuseGIPass(pRenderContext, renderData);
-        }
+        spatialReuseGIPass(pRenderContext, renderData);
         shadingIndirectPass(pRenderContext, renderData);
         break;
     }
@@ -623,38 +611,42 @@ void ReSTIRPass::spatialReusePass(RenderContext* pRenderContext, const RenderDat
 {
 
     FALCOR_PROFILE("spatialReusePass");
-    // Bind resources.
-    auto var = mpSpatialReusePass->getRootVar()["CB"]["gSpatialReusePass"];
 
-    var["gFrameDim"] = mFrameDim;
-    var["gFrameCount"] = mFrameCount;
-
-    var["gSurfaceData"] = mpSurfaceData;
-    var["gNormalDepth"] = mpNormalDepth;
-
-    std::swap(mpReservoirs, mpPrevReservoirs);
-
-    var["gReservoirs"] = mpPrevReservoirs;
-    var["gOutReservoirs"] = mpReservoirs;
-    var["gDebug"] = renderData.getTexture(kDebug);
-
-    if (mpEmissiveGeometryAliasTable)
+    for (size_t iteration = 0; iteration < mReSTIRParams.spatialIterationCount; iteration++)
     {
-        mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
-    }
-    if (mpAnalyticLightsAliasTable)
-    {
-        mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
-    }
-    if (mpEnvironmentAliasTable)
-    {
-        mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
-        var["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
-    }
+        // Bind resources.
+        auto var = mpSpatialReusePass->getRootVar()["CB"]["gSpatialReusePass"];
 
-    mpSpatialReusePass["gScene"] = mpScene->getParameterBlock();
+        var["gFrameDim"] = mFrameDim;
+        var["gFrameCount"] = mFrameCount;
 
-    mpSpatialReusePass->execute(pRenderContext, { mFrameDim, 1u });
+        var["gSurfaceData"] = mpSurfaceData;
+        var["gNormalDepth"] = mpNormalDepth;
+
+        std::swap(mpReservoirs, mpPrevReservoirs);
+
+        var["gReservoirs"] = mpPrevReservoirs;
+        var["gOutReservoirs"] = mpReservoirs;
+        var["gDebug"] = renderData.getTexture(kDebug);
+
+        if (mpEmissiveGeometryAliasTable)
+        {
+            mpEmissiveGeometryAliasTable->setShaderData(var["gLightSampler"]["emissiveGeometryAliasTable"]);
+        }
+        if (mpAnalyticLightsAliasTable)
+        {
+            mpAnalyticLightsAliasTable->setShaderData(var["gLightSampler"]["analyticLightsAliasTable"]);
+        }
+        if (mpEnvironmentAliasTable)
+        {
+            mpEnvironmentAliasTable->setShaderData(var["gLightSampler"]["environmentAliasTable"]);
+            var["gLightSampler"]["environmentLuminanceTable"] = mpEnvironmentLuminanceTable;
+        }
+
+        mpSpatialReusePass["gScene"] = mpScene->getParameterBlock();
+
+        mpSpatialReusePass->execute(pRenderContext, { mFrameDim, 1u });
+    }
 
 }
 
@@ -790,25 +782,30 @@ void ReSTIRPass::temporalReuseGIPass(RenderContext* pRenderContext, const Render
 void ReSTIRPass::spatialReuseGIPass(RenderContext* pRenderContext, const RenderData& renderData)
 {
     FALCOR_PROFILE("spatialReuseGIPass");
-    // Bind resources.
-    auto var = mpSpatialReuseGIPass->getRootVar()["CB"]["gSpatialReuseGIPass"];
 
-    var["gFrameDim"] = mFrameDim;
-    var["gFrameCount"] = mFrameCount;
+    for (size_t iteration = 0; iteration < mReSTIRParams.giSpatialIterationCount; iteration++)
+    {
+        if(iteration > 0)
+        {
+            std::swap(mpSpatialGIReservoirs, mpGIReservoirs);
+        }
+        // Bind resources.
+        auto var = mpSpatialReuseGIPass->getRootVar()["CB"]["gSpatialReuseGIPass"];
 
-    var["gSurfaceData"] = mpSurfaceData;
+        var["gFrameDim"] = mFrameDim;
+        var["gFrameCount"] = mFrameCount;
+
+        var["gSurfaceData"] = mpSurfaceData;
+
+        var["gReservoirsGI"] = iteration > 0 ? mpSpatialGIReservoirs : mpPrevGIReservoirs;
+        var["gOutReservoirsGI"] = mpGIReservoirs;
+        var["gDebug"] = renderData.getTexture(kDebug);
 
 
-    //std::swap(mpGIReservoirs, mpPrevGIReservoirs);
+        mpSpatialReuseGIPass["gScene"] = mpScene->getParameterBlock();
 
-    var["gReservoirsGI"] = mpPrevGIReservoirs;
-    var["gOutReservoirsGI"] = mpGIReservoirs;
-    var["gDebug"] = renderData.getTexture(kDebug);
-
-
-    mpSpatialReuseGIPass["gScene"] = mpScene->getParameterBlock();
-
-    mpSpatialReuseGIPass->execute(pRenderContext, { mFrameDim, 1u });
+        mpSpatialReuseGIPass->execute(pRenderContext, { mFrameDim, 1u });
+    }
 }
 
 void ReSTIRPass::shadingIndirectPass(RenderContext* pRenderContext, const RenderData& renderData)
@@ -1069,6 +1066,11 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
     if (mReSTIRParams.mode == Mode::ReSTIRGI && (!mpPrevGIReservoirs || mpPrevGIReservoirs->getElementCount() < pixelCount))
     {
         mpPrevGIReservoirs = Buffer::createStructured(sizeof(uint4) * 4, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
+    }
+
+    if (mReSTIRParams.mode == Mode::ReSTIRGI && (!mpSpatialGIReservoirs || mpSpatialGIReservoirs->getElementCount() < pixelCount))
+    {
+        mpSpatialGIReservoirs = Buffer::createStructured(sizeof(uint4) * 4, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
 }

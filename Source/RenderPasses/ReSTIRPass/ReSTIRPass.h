@@ -223,8 +223,9 @@ private:
     Buffer::SharedPtr mpPrevNormalDepth;                ///< Pointer to the buffer for previous normal depth.
     Buffer::SharedPtr mpPrevReservoirs;                 ///< Pointer to the buffer for previous reservoirs.
 
-    Buffer::SharedPtr mpGIReservoirs;                   ///< Pointer to the buffer for global illumination reservoirs.
+    Buffer::SharedPtr mpGIReservoirs;                   ///< Pointer to the buffer for initial global illumination reservoirs.
     Buffer::SharedPtr mpPrevGIReservoirs;               ///< Pointer to the buffer for previous global illumination reservoirs.
+    Buffer::SharedPtr mpSpatialGIReservoirs;            ///< Pointer to the buffer for spatial global illumination reservoirs.
 
     // Emissive geometry sampling data
     AliasTable::SharedPtr mpEmissiveGeometryAliasTable; ///< Pointer to the alias table for emissive geometry.
