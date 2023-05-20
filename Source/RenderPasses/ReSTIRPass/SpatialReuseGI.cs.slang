@@ -87,15 +87,15 @@ struct SpatialReuseGIPass
 
         float3 rayOrigin = computeRayOrigin(surfaceData.position, surfaceData.normal);
         TinyUniformSampleGenerator sg1 = sg;
+#if GI_UNBIASED
         TinyUniformSampleGenerator sg2 = sg;
-
         uint validNeighborFlags = 0;
         float radiusCache[kNeighborCount] = {};
+#endif
         float radius = 0.1f * gFrameDim.y;
         [unroll]
         for (int i = 0; i < kNeighborCount; i++)
         {
-            radiusCache[i] = radius;
             uint2 neighborPixel = getRandomNeighborPixel(pixel, sg1, radius);
 
 			// Discard pixel if out of bounds
@@ -164,13 +164,15 @@ struct SpatialReuseGIPass
             neighborReservoirTargetPDF *= jacobian;
 
             outputReservoir.update(neighborReservoir, neighborReservoirTargetPDF, sg);
-
+#if GI_UNBIASED
+            radiusCache[i] = radius;
             validNeighborFlags |= (1u << i);
+#endif
         }
 
+#if GI_UNBIASED
         float targetPdf = luminance(outputReservoir.sample.Le);
         uint Z = 0;
-
         if (targetPdf > 0.f) {
             if (evalSegmentVisibility(surfaceData.position, outputReservoir.sample.samplePoint))
                 Z += currentReservoir.M;
@@ -194,6 +196,9 @@ struct SpatialReuseGIPass
         }
         float m = Z > 0 ? 1.f / Z : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / (outputReservoir.W) : 0.f;
+#else
+        outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum / outputReservoir.M) / (outputReservoir.W) : 0.f;
+#endif
         outputReservoir.M = min(outputReservoir.M, kMCap);
 		// Store reservoir
         gOutReservoirsGI[bufferIndex] = outputReservoir.pack();

@@ -167,6 +167,8 @@ private:
         Mode        mode = Mode::SpatiotemporalResampling;      ///< The resampling mode of ReSTIR algorithm.
 
         // ReSTIR GI params
+        bool        giUnbiased = false;                         ///< Perform bias correction when resampling.
+        bool        giIndirectOnly = false;                     ///< Compute only indirect light contribution.
         uint32_t    giTemporalMCap = 30;                        ///< This cap helps to curtail the influence of temporal samples partially, providing new candidates with a better opportunity to be chosen during resampling.
         uint32_t    giSpatialMCap = 300;                        ///< This cap helps to curtail the influence of spatial samples partially, providing new candidates with a better opportunity to be chosen during resampling.
         uint32_t    giSpatialIterationCount = 1;                ///< Number of spatial resampling iterations.
@@ -174,7 +176,6 @@ private:
         float       giNormalThreshold = 0.5f;                   ///< Threshold for normal comparison.
         float       giDepthThreshold = 0.2f;                    ///< Threshold for depth comparison.
         uint32_t    giBounces = 2;                              ///< Maximum number of bounces
-        bool        giIndirectOnly = false;
     };
 
     // Configuration

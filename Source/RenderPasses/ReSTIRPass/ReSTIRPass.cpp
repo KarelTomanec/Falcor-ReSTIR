@@ -255,33 +255,32 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
     // This should be called after all resources have been created.
     prepareRenderPass(renderData);
 
-
-    createLightTiles(pRenderContext);
+    loadSurfaceDataPass(pRenderContext, renderData);
 
     switch (mReSTIRParams.mode)
     {
     case Mode::NoResampling:
-        loadSurfaceDataPass(pRenderContext, renderData);
+        createLightTiles(pRenderContext);
         generateInitialCandidatesPass(pRenderContext, renderData);
         createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatialResampling:
-        loadSurfaceDataPass(pRenderContext, renderData);
+        createLightTiles(pRenderContext);
         generateInitialCandidatesPass(pRenderContext, renderData);
         spatialReusePass(pRenderContext, renderData);
         createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
     case Mode::TemporalResampling:
-        loadSurfaceDataPass(pRenderContext, renderData);
+        createLightTiles(pRenderContext);
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
         createDirectSamplesPass(pRenderContext, renderData);
         shadePass(pRenderContext, renderData);
         break;
     case Mode::SpatiotemporalResampling:
-        loadSurfaceDataPass(pRenderContext, renderData);
+        createLightTiles(pRenderContext);
         generateInitialCandidatesPass(pRenderContext, renderData);
         temporalReusePass(pRenderContext, renderData);
         spatialReusePass(pRenderContext, renderData);
@@ -292,11 +291,14 @@ void ReSTIRPass::execute(RenderContext* pRenderContext, const RenderData& render
         decoupledPipelinePass(pRenderContext, renderData);
         break;
     case Mode::ReSTIRGI:
-        loadSurfaceDataPass(pRenderContext, renderData);
-        generateInitialCandidatesPass(pRenderContext, renderData);
-        temporalReusePass(pRenderContext, renderData);
-        spatialReusePass(pRenderContext, renderData);
-        createDirectSamplesPass(pRenderContext, renderData);
+        if(!mReSTIRParams.giIndirectOnly)
+        {
+            createLightTiles(pRenderContext);
+            generateInitialCandidatesPass(pRenderContext, renderData);
+            temporalReusePass(pRenderContext, renderData);
+            spatialReusePass(pRenderContext, renderData);
+            createDirectSamplesPass(pRenderContext, renderData);
+        }
         tracePass(pRenderContext, renderData, *mpTracePass);
         temporalReuseGIPass(pRenderContext, renderData);
         spatialReuseGIPass(pRenderContext, renderData);
@@ -417,7 +419,10 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
         if (auto group = widget.group("ReSTIR GI", false))
         {
             dirty |= group.checkbox("Indirect Only", mReSTIRParams.giIndirectOnly);
-            group.tooltip("Render only indirect light.");
+            group.tooltip("Compute only indirect light contribution.");
+
+            dirty |= group.checkbox("Unbiased", mReSTIRParams.giUnbiased);
+            group.tooltip("Perform bias correction when resampling.");
 
             dirty |= group.var("Max. Bounces", mReSTIRParams.giBounces, kMinGIBounces, kMaxGIBounces);
             group.tooltip("Maximum number of bounces.");
@@ -1471,6 +1476,7 @@ Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner
     defines.add("GI_NORMAL_THRESHOLD", std::to_string(owner.mReSTIRParams.giNormalThreshold));
     defines.add("GI_BOUNCES", std::to_string(owner.mReSTIRParams.giBounces));
     defines.add("GI_INDIRECT_ONLY", owner.mReSTIRParams.giIndirectOnly ? "1" : "0");
+    defines.add("GI_UNBIASED", owner.mReSTIRParams.giUnbiased ? "1" : "0");
 
     return defines;
 }
