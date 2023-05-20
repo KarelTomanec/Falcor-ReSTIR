@@ -80,23 +80,26 @@ private:
 
     struct TracePass
     {
-        std::string name;
-        std::string passDefine;
-        RtProgram::SharedPtr pProgram;
-        RtBindingTable::SharedPtr pBindingTable;
-        RtProgramVars::SharedPtr pVars;
+        std::string name;                           ///< Name of the TracePass.
+        std::string passDefine;                     ///< Definition string associated with the TracePass.
+        RtProgram::SharedPtr pProgram;              ///< Shared pointer to the raytracing program for this pass.
+        RtBindingTable::SharedPtr pBindingTable;    ///< Shared pointer to the binding table for this pass.
+        RtProgramVars::SharedPtr pVars;             ///< Shared pointer to the program variables for this pass.
 
         TracePass(const std::string& name, const std::string& passDefine, const Scene::SharedPtr& pScene, const Program::DefineList& defines, const Program::TypeConformanceList& globalTypeConformances);
-        void prepareProgram(const Program::DefineList& defines);
+        void prepareProgram(const Program::DefineList& defines);    ///< Prepares the raytracing program for this pass.
     };
 
     ReSTIRPass(const Dictionary& dict);
+    
     void parseDictionary(const Dictionary& dict);
+    
     void prepareMaterials(RenderContext* pRenderContext);
-
+    
     bool prepareLighting(RenderContext* pRenderContext);
+    
     void resetLighting();
-
+    
     AliasTable::SharedPtr createEmissiveGeometryAliasTable(RenderContext* pRenderContext, const LightCollection::SharedPtr& lightCollection);
     AliasTable::SharedPtr createEnvironmentAliasTable(RenderContext* pRenderContext, const Texture::SharedPtr& envTexture);
     AliasTable::SharedPtr createAnalyticLightsAliasTable(RenderContext* pRenderContext);
@@ -107,6 +110,9 @@ private:
     void updatePrograms();
     void prepareResources(RenderContext* pRenderContext, const RenderData& renderData);
 
+    /*
+     * Render passes.
+     */
     void tracePass(RenderContext* pRenderContext, const RenderData& renderData, TracePass& tracePass);
     void createLightTiles(RenderContext* pRenderContext);
     void loadSurfaceDataPass(RenderContext* pRenderContext, const RenderData& renderData);
@@ -118,7 +124,6 @@ private:
     void temporalReuseGIPass(RenderContext* pRenderContext, const RenderData& renderData);
     void spatialReuseGIPass(RenderContext* pRenderContext, const RenderData& renderData);
     void shadingIndirectPass(RenderContext* pRenderContext, const RenderData& renderData);
-
     void decoupledPipelinePass(RenderContext* pRenderContext, const RenderData& renderData);
 
     void prepareRenderPass(const RenderData& renderData);
@@ -136,42 +141,45 @@ private:
         Program::DefineList getDefines(const ReSTIRPass& owner) const;
     };
 
+    /*
+     * Static configuration of the ReSTIR algorithm.
+     */
     struct ReSTIRParams
     {
-        uint32_t    lightTileScreenSize = 8;
-        uint32_t    lightTileSize = 1024;
-        uint32_t    lightTileCount = 128;
+        uint32_t    lightTileScreenSize = 8;                    ///< Screen size of the light tiles in pixels.
+        uint32_t    lightTileSize = 1024;                       ///< Total number of light samples in each light tile.
+        uint32_t    lightTileCount = 128;                       ///< Total number of light tiles.
 
-        bool        testInitialSampleVisibility = true;
-        uint32_t    emissiveLightCandidateCount = 32; // = 24
-        uint32_t    envLightCandidateCount = 0; // = 8
-        uint32_t    analyticLightCandidateCount = 0; // = 1
+        bool        testInitialSampleVisibility = true;         ///< If true, initial samples' visibility is tested.
+        uint32_t    emissiveLightCandidateCount = 32 /*24*/;    ///< Number of candidate samples for emissive lights.
+        uint32_t    envLightCandidateCount = 0 /*8*/;           ///< Number of candidate samples for environment lights.
+        uint32_t    analyticLightCandidateCount = 0 /*1*/;      ///< Number of candidate samples for analytic lights.
 
-        BiasCorrection biasCorrection = BiasCorrection::Off;
-        float       normalThreshold = 0.9f;
-        float       depthThreshold = 0.1f;
+        BiasCorrection biasCorrection = BiasCorrection::Off;    ///< Bias correction method used.
+        float       normalThreshold = 0.5f;                     ///< Threshold for normal comparison.
+        float       depthThreshold = 0.1f;                      ///< Threshold for depth comparison.
 
-        uint32_t    spatialIterationCount = 1;
-        uint32_t    spatialReuseSampleCount = 1;
-        float       spatialReuseSampleRadius = 30.f;
+        uint32_t    spatialIterationCount = 1;                  ///< Number of spatial resampling iterations.
+        uint32_t    spatialReuseSampleCount = 1;                ///< Number of samples reused from the previous frame.
+        float       spatialReuseSampleRadius = 30.f;            ///< Radius within which to reuse samples.
 
-        uint32_t    temporalHistoryLength = 20;
+        uint32_t    temporalHistoryLength = 20;                 ///< Length of the temporal history for resampling.
 
-        bool        useCheckerboarding = false;
+        bool        useCheckerboarding = false;                 ///< If true, checkerboard rendering is used.
 
-        float       spatialVisibilityThreshold = 0.f;
+        float       spatialVisibilityThreshold = 0.f;           ///< Threshold for visibility during spatial resampling.
 
-        Mode        mode = Mode::SpatiotemporalResampling;
+        Mode        mode = Mode::SpatiotemporalResampling;      ///< The resampling mode of ReSTIR algorithm.
     };
 
     // Configuration
     StaticParams                    mStaticParams;              ///< Static parameters. These are set as compile-time constants in the shaders.
     bool                            mEnabled = true;            ///< Switch to enable/disable the render pass. When disabled the pass outputs are cleared.
     RenderPassHelpers::IOSize       mOutputSizeSelection = RenderPassHelpers::IOSize::Default;  ///< Selected output size.
-    uint2                           mFixedOutputSize = { 512, 512 };                            ///< Output size in pixels when 'Fixed' size is selected.
+    uint2                           mFixedOutputSize = { 512, 512 };                      ///< Output size in pixels when 'Fixed' size is selected.
 
 
-    ReSTIRParams                    mReSTIRParams;
+    ReSTIRParams                    mReSTIRParams;              ///< Contains parameters for the ReSTIR algorithm.
 
     // Internal state
     Scene::SharedPtr                mpScene;                    ///< The current scene, or nullptr if no scene loaded.
@@ -179,52 +187,50 @@ private:
     EnvMapSampler::SharedPtr        mpEnvMapSampler;            ///< Environment map sampler or nullptr if not used.
     EmissiveLightSampler::SharedPtr mpEmissiveSampler;          ///< Emissive light sampler or nullptr if not used.
 
-    ComputePass::SharedPtr          mpCreateLightTiles;
-    ComputePass::SharedPtr          mpLoadSurfaceDataPass;
-    ComputePass::SharedPtr          mpGenerateInitialCandidatesPass;
-    ComputePass::SharedPtr          mpTemporalReusePass;
-    ComputePass::SharedPtr          mpSpatialReusePass;
-    ComputePass::SharedPtr          mpCreateDirectLightSamplesPass;
-    ComputePass::SharedPtr          mpShadePass;
-    ComputePass::SharedPtr          mpShadingIndirect;
-    ComputePass::SharedPtr          mpTemporalReuseGIPass;
-    ComputePass::SharedPtr          mpSpatialReuseGIPass;
+    ComputePass::SharedPtr          mpCreateLightTiles;                 ///< Compute pass for creating light tiles.
+    ComputePass::SharedPtr          mpLoadSurfaceDataPass;              ///< Compute pass for loading surface data.
+    ComputePass::SharedPtr          mpGenerateInitialCandidatesPass;    ///< Compute pass for generating initial candidates.
+    ComputePass::SharedPtr          mpTemporalReusePass;                ///< Compute pass for temporal reuse.
+    ComputePass::SharedPtr          mpSpatialReusePass;                 ///< Compute pass for spatial reuse.
+    ComputePass::SharedPtr          mpCreateDirectLightSamplesPass;     ///< Compute pass for creating direct light samples.
+    ComputePass::SharedPtr          mpShadePass;                        ///< Compute pass for shading.
+    ComputePass::SharedPtr          mpShadingIndirect;                  ///< Compute pass for indirect shading.
+    ComputePass::SharedPtr          mpTemporalReuseGIPass;              ///< Compute pass for temporal reuse in global illumination.
+    ComputePass::SharedPtr          mpSpatialReuseGIPass;               ///< Compute pass for spatial reuse in global illumination.
 
-    ComputePass::SharedPtr          mpDecoupledPipelinePass;
+    ComputePass::SharedPtr          mpDecoupledPipelinePass;            ///< Compute pass for decoupled pipeline.
 
-    std::unique_ptr<TracePass>      mpTracePass;                ///< Main trace pass.
+    std::unique_ptr<TracePass>      mpTracePass;                        ///< Main trace pass.
 
     // Runtime data
-    uint                            mFrameCount = 0;        ///< Frame count since scene was loaded.
-    uint2                           mFrameDim = uint2(0, 0);
+    uint                            mFrameCount = 0;                    ///< Frame count since scene was loaded.
+    uint2                           mFrameDim = uint2(0, 0);      ///< Dimensions of the current frame.
 
-    bool                            mOptionsChanged = false;
+    bool                            mOptionsChanged = false;    ///< Flag indicating whether the options have changed.
     bool                            mRecompile = false;         ///< Set to true when program specialization has changed.
     bool                            mVarsChanged = true;        ///< This is set to true whenever the program vars have changed and resources need to be rebound.
 
     // Textures and buffer
-    Buffer::SharedPtr               mpReservoirs;
+    Buffer::SharedPtr mpReservoirs;                     ///< Pointer to the buffer for reservoirs.
+    Buffer::SharedPtr mpDirectLightSamples;             ///< Pointer to the buffer for direct light samples.
+    Buffer::SharedPtr mpSurfaceData;                    ///< Pointer to the buffer for surface data.
+    Buffer::SharedPtr mpNormalDepth;                    ///< Pointer to the buffer for normal depth.
 
-    Buffer::SharedPtr               mpDirectLightSamples;
+    Buffer::SharedPtr mpPrevSurfaceData;                ///< Pointer to the buffer for previous surface data.
+    Buffer::SharedPtr mpPrevNormalDepth;                ///< Pointer to the buffer for previous normal depth.
+    Buffer::SharedPtr mpPrevReservoirs;                 ///< Pointer to the buffer for previous reservoirs.
 
-    Buffer::SharedPtr               mpSurfaceData;
-    Buffer::SharedPtr               mpNormalDepth;
-
-    Buffer::SharedPtr               mpPrevSurfaceData;
-    Buffer::SharedPtr               mpPrevNormalDepth;
-    Buffer::SharedPtr               mpPrevReservoirs;
-
-    Buffer::SharedPtr               mpGIReservoirs;
-    Buffer::SharedPtr               mpPrevGIReservoirs;
+    Buffer::SharedPtr mpGIReservoirs;                   ///< Pointer to the buffer for global illumination reservoirs.
+    Buffer::SharedPtr mpPrevGIReservoirs;               ///< Pointer to the buffer for previous global illumination reservoirs.
 
     // Emissive geometry sampling data
-    AliasTable::SharedPtr mpEmissiveGeometryAliasTable;
-    AliasTable::SharedPtr mpEnvironmentAliasTable;
-    AliasTable::SharedPtr mpAnalyticLightsAliasTable;
+    AliasTable::SharedPtr mpEmissiveGeometryAliasTable; ///< Pointer to the alias table for emissive geometry.
+    AliasTable::SharedPtr mpEnvironmentAliasTable;      ///< Pointer to the alias table for environment.
+    AliasTable::SharedPtr mpAnalyticLightsAliasTable;   ///< Pointer to the alias table for analytic lights.
 
-    Buffer::SharedPtr mpEnvironmentLuminanceTable;
+    Buffer::SharedPtr mpEnvironmentLuminanceTable;      ///< Pointer to the buffer for environment luminance table.
 
-    Buffer::SharedPtr mpLightTiles;
+    Buffer::SharedPtr mpLightTiles;                     ///< Pointer to the buffer for light tiles.
 
-    std::mt19937 mRnd;
+    std::mt19937 mRnd;                                  ///< Random number generator.
 };
