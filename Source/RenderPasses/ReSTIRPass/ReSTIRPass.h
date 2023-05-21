@@ -151,7 +151,7 @@ private:
         uint32_t    analyticLightCandidateCount = 0 /*1*/;      ///< Number of candidate samples for analytic lights.
 
         BiasCorrection biasCorrection = BiasCorrection::Off;    ///< Bias correction method used.
-        float       normalThreshold = 0.5f;                     ///< Threshold for normal comparison.
+        float       normalThreshold = 0.9f;                     ///< Threshold for normal comparison.
         float       depthThreshold = 0.1f;                      ///< Threshold for depth comparison.
 
         uint32_t    spatialIterationCount = 1;                  ///< Number of spatial resampling iterations.
