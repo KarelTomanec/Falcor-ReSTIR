@@ -48,7 +48,7 @@ struct SpatialReuseGIPass
         float3 offset = endPoint - pos;
         float tMax = length(offset);
         float3 dir = offset / tMax;
-        const Ray ray = Ray(pos, dir, 0.f, tMax);
+        const Ray ray = Ray(pos, dir, 0.01f, 0.99f*tMax);
         SceneRayQuery<1> sceneRayQuery;
         return sceneRayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
     }

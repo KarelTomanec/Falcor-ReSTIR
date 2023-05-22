@@ -97,12 +97,23 @@ struct ShadePass
                 valid = false;
             }
         }
-        float3 col = float3(0.f);
         // gDebug[pixel] = float4(reservoir.W, 0, 0, 1);
         // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
+
+        float3 diffuse = float3(0.f);
+        float3 specular = float3(0.f);
+
         if (valid)
-            col = bsdf.eval(sd, dirToLight, sg) * Li * reservoir.W;
-        return col;
+        {
+
+            sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
+            diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
+
+            sd.mtl.setActiveLobes((uint)LobeType::SpecularReflection);
+            specular = bsdf.eval(sd, dirToLight, sg) * Li;
+        }
+
+        return (diffuse + specular) * reservoir.W;
     }
 
     float3 evalDirectLight(const uint2 pixel, ShadingData sd, const IBSDF bsdf, inout TinyUniformSampleGenerator sg)
