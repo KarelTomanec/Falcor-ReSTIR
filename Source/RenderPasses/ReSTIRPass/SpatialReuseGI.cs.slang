@@ -108,19 +108,19 @@ struct SpatialReuseGIPass
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
             if (!neighborSurfaceData.isValid())
             {
-                radius *= 0.5f;
+                radius = max(5.f, radius * 0.5f);
                 continue;
             }
 
             if (neighborReservoir.M == 0.f)
             {
-                radius *= 0.5f;
+                radius = max(5.f, radius * 0.5f);
                 continue;
             }
 
             if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, kDepthThreshold, kNormalThreshold))
             {
-                radius *= 0.5f;
+                radius = max(5.f, radius * 0.5f);
                 continue;
             }
 
