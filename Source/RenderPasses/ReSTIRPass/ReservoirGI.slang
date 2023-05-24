@@ -15,12 +15,12 @@ struct PackedSampleGI
 
 struct SampleGI
 {
-    float3 surfacePoint;
-    float3 surfaceNormal;
-    float3 samplePoint;
-    float3 sampleNormal;
-    float3 Le;
-    float sourcePdf;
+    float3 surfacePoint;  ///< Visible point.
+    float3 surfaceNormal; ///< Surface normal of the visible point
+    float3 samplePoint;   ///< Sample point.
+    float3 sampleNormal;  ///< Surface normal of the sample.
+    float3 Le;            ///< Emission.
+    float sourcePdf;      ///< Source PDF of the light sample.
     uint valid = 0;
 
     static SampleGI unpack(const PackedSampleGI packedSample)
