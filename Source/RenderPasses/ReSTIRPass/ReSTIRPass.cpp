@@ -1071,21 +1071,19 @@ void ReSTIRPass::prepareResources(RenderContext* pRenderContext, const RenderDat
         mpDirectLightSamples = Buffer::createStructured(sizeof(uint4), pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
 
+    // Create GI reservoirs
     if (mReSTIRParams.mode == Mode::ReSTIRGI && (!mpGIReservoirs || mpGIReservoirs->getElementCount() < pixelCount))
     {
         mpGIReservoirs = Buffer::createStructured(sizeof(uint4) * 4, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
-
     if (mReSTIRParams.mode == Mode::ReSTIRGI && (!mpPrevGIReservoirs || mpPrevGIReservoirs->getElementCount() < pixelCount))
     {
         mpPrevGIReservoirs = Buffer::createStructured(sizeof(uint4) * 4, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
-
     if (mReSTIRParams.mode == Mode::ReSTIRGI && (!mpSpatialGIReservoirs || mpSpatialGIReservoirs->getElementCount() < pixelCount))
     {
         mpSpatialGIReservoirs = Buffer::createStructured(sizeof(uint4) * 4, pixelCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
     }
-
 }
 
 bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)

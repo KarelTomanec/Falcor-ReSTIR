@@ -3,7 +3,7 @@ import Utils.Sampling.TinyUniformSampleGenerator;
 
 struct CreateLightTilesPass
 {
-    // Static:
+    // Static
     static const uint kLightTileCount = LIGHT_TILE_COUNT; ///< Number of light tiles.
     static const uint kLightTileSize = LIGHT_TILE_SIZE;   ///< Number of light samples in the tile.
     static const uint kLightTileEmissiveSampleCount = LIGHT_TILE_EMISSIVE_SAMPLE_COUNT; ///< Number of emissive geometry light samples in the tile.
@@ -12,10 +12,10 @@ struct CreateLightTilesPass
 
     LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
 
-    // Resources:
+    // Resources
     RWStructuredBuffer<PackedLightSample> gLightTiles; ///< Output samples saved as light tiles.
 
-	uint    gFrameCount; ///< Frame count since scene was loaded.
+	uint gFrameCount; ///< Frame count since scene was loaded.
 
 	void execute(const uint2 threadId)
 	{
@@ -24,7 +24,8 @@ struct CreateLightTilesPass
         // Sample index inside the tile.
         uint inTileSampleIndex = threadId.x;
 
-        if (tileIndex >= kLightTileCount || inTileSampleIndex >= kLightTileSize) return;
+        if (tileIndex >= kLightTileCount || inTileSampleIndex >= kLightTileSize)
+            return;
 
         // Get buffer index where the selected sample will be saved.
         uint bufferIndex = tileIndex * kLightTileSize + inTileSampleIndex;
@@ -48,6 +49,7 @@ struct CreateLightTilesPass
             // The third part of the light tile consists of analytic samples.
             lightSample = gLightSampler.sampleAnalytic(sg);
         }
+
         // Pack and save selected sample.
         gLightTiles[bufferIndex] = lightSample.pack();
 	}
