@@ -69,7 +69,6 @@ struct TemporalReuseGIPass
         if (!surfaceData.isValid())
             return;
 
-        // ShadingData sdPrev;
         SurfaceData prevSurfaceData;
         uint2 prevPixel = reprojPos;
         bool neighborFound = false;

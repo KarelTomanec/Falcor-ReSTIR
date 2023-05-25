@@ -168,7 +168,7 @@ struct SurfaceData
         float NDotH = saturate(dot(normal, H));
         float wiDotH = saturate(dot(wi, H));
 
-        float alpha = specularRoughness * specularRoughness; // GGX width parameter
+        float alpha = specularRoughness * specularRoughness;
         float D = evalNdfGGX(alpha, NDotH);
         float G = evalMaskingSmithGGXSeparable(alpha, woDotN, wiDotN);
         float F = specularWeight < 1e-8f ? 0.f : evalFresnelSchlick(specularWeight, 1.f, wiDotH) / specularWeight;

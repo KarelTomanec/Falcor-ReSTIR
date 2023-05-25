@@ -63,12 +63,13 @@ struct LoadSurfaceDataPass
 
     uint2 gFrameDim;  ///< Frame dimensions.
     uint gFrameCount; ///< Frame count since scene was loaded.
-    // Resources:
-    Texture2D<PackedHitInfo> gVBuffer;
-    RWStructuredBuffer<PackedSurfaceData> gSurfaceData;
-    RWStructuredBuffer<PackedNormalDepth> gNormalDepth;
 
-    // Debug:
+    // Resources
+    Texture2D<PackedHitInfo> gVBuffer; ///< Packed visibility buffer
+    RWStructuredBuffer<PackedSurfaceData> gSurfaceData; ///< Packed surface data
+    RWStructuredBuffer<PackedNormalDepth> gNormalDepth; ///< Packed normal depth
+
+    // Debug
 	RWTexture2D<float4> gDebug;
 
 	void execute(const uint2 pixel)

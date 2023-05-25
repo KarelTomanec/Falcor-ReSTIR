@@ -55,13 +55,13 @@ struct ShadePass
     uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
-    LightSampler gLightSampler;
+    LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
 
     // Resources:
     Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
 
-    StructuredBuffer<PackedDirectLightSample> gDirectLightSamples;
-    StructuredBuffer<PackedReservoirGI> gGIReservoirs;
+    StructuredBuffer<PackedDirectLightSample> gDirectLightSamples;  ///< Input direct light samples.
+    StructuredBuffer<PackedReservoirGI> gGIReservoirs;  ///< Input GI reservoirs with indirect samples.
 
 	RWTexture2D<float4> gOutputColor;
     RWTexture2D<float4> gOutputAlbedo;
@@ -103,7 +103,6 @@ struct ShadePass
 
         if (valid)
         {
-
             sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
             diffuse = bsdf.eval(sd, dirToLight, sg) * Li;
 

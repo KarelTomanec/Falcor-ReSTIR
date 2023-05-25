@@ -35,21 +35,20 @@ struct SpatialReuseGIPass
 	uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
-	// Resources:
+	// Resources
     StructuredBuffer<PackedReservoirGI> gReservoirsGI; ///< Buffer with packed reservoirs.
     StructuredBuffer<PackedSurfaceData> gSurfaceData; ///< Surface data for the current frame.
 	RWStructuredBuffer<PackedReservoirGI> gOutReservoirsGI; ///< Output buffer with packed reservoirs.
 
-    // Debug:
+    // Debug
     RWTexture2D<float4> gDebug;
 
-
-    bool evalVisibility(float3 pos, float3 endPoint)
+    bool evalSampleVisibility(float3 pos, float3 samplePoint)
     {
-        float3 offset = endPoint - pos;
-        float tMax = length(offset);
-        float3 dir = offset / tMax;
-        const Ray ray = Ray(pos, dir, 0.01f, 0.99f*tMax);
+        float3 posToSample = samplePoint - pos;
+        float distance = length(posToSample);
+        float3 dir = posToSample / distance;
+        const Ray ray = Ray(pos, dir, kShadowRayEpsilon, distance - kShadowRayEpsilon);
         SceneRayQuery<1> sceneRayQuery;
         return sceneRayQuery.traceVisibilityRay(ray, RAY_FLAG_NONE, 0xff);
     }
@@ -154,7 +153,7 @@ struct SpatialReuseGIPass
             }
 
             // Evaluate visibility
-            bool isVisible = evalVisibility(rayOrigin, neighborLightSample.samplePoint);
+            bool isVisible = evalSampleVisibility(rayOrigin, neighborLightSample.samplePoint);
             if (!isVisible)
                 neighborReservoirTargetPDF = 0.f;
 

@@ -31,7 +31,7 @@
 #include "Rendering/Lights/EmissiveUniformSampler.h"
 #include "Utils/Color/ColorHelpers.slang"
 
-const RenderPass::Info ReSTIRPass::kInfo { "ReSTIRPass", "TODO: description" };
+const RenderPass::Info ReSTIRPass::kInfo { "ReSTIRPass", "" };
 
 // Don't remove this. it's required for hot-reload to function properly
 extern "C" FALCOR_API_EXPORT const char* getProjDir()
@@ -444,7 +444,6 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
 
             dirty |= group.var("Normal threshold", mReSTIRParams.giDepthThreshold, 0.f, 1.f);
             group.tooltip("Normal threshold for sample reuse.");
-
         }
     }
 
@@ -461,12 +460,6 @@ void ReSTIRPass::prepareRenderPass(const RenderData& renderData)
 
 void ReSTIRPass::setShaderData(const ShaderVar& var, const RenderData& renderData, bool useLightSampling) const
 {
-    // Bind static resources that don't change per frame.
-    //if (mVarsChanged)
-    //{
-    //    if (useLightSampling && mpEnvMapSampler) mpEnvMapSampler->setShaderData(var["CB"]["gEnvMapSampler"]);
-    //}
-
     var["CB"]["gFrameCount"] = mFrameCount;
 
     var["gVBuffer"] = renderData.getTexture(kInputVBuffer);
@@ -861,7 +854,7 @@ ReSTIRPass::TracePass::TracePass(const std::string& name, const std::string& pas
     desc.addShaderModules(pScene->getShaderModules());
     desc.addShaderLibrary(kTracePassFilename);
     desc.setShaderModel(kShaderModel);
-    desc.setMaxPayloadSize(kMaxPayloadSizeBytes); // TODO: The required minimum is 140 bytes!
+    desc.setMaxPayloadSize(kMaxPayloadSizeBytes); // TODO: The required minimum is 72 bytes!
     desc.setMaxAttributeSize(pScene->getRaytracingMaxAttributeSize());
     desc.setMaxTraceRecursionDepth(kMaxRecursionDepth);
     if (!pScene->hasProceduralGeometry()) desc.setPipelineFlags(RtPipelineFlags::SkipProceduralPrimitives);
@@ -1181,7 +1174,6 @@ bool ReSTIRPass::prepareLighting(RenderContext* pRenderContext)
 
     if (mpScene->useAnalyticLights())
     {
-
         if (!mpAnalyticLightsAliasTable)
         {
             if (mpScene->getActiveLightCount() > 0)
@@ -1416,7 +1408,6 @@ void ReSTIRPass::endFrame(RenderContext* pRenderContext, const RenderData& rende
 
 Program::DefineList ReSTIRPass::StaticParams::getDefines(const ReSTIRPass& owner) const
 {
-
     Program::DefineList defines;
 
     // Sampling utilities configuration.

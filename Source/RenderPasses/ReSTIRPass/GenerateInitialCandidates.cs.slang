@@ -89,9 +89,9 @@ struct GenerateInitialCandidatesPass
     LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
 
     // Resources:
-    StructuredBuffer<PackedLightSample> gLightTiles;
-    StructuredBuffer<PackedSurfaceData> gSurfaceData;
-    RWStructuredBuffer<PackedReservoir> gReservoirs;
+    StructuredBuffer<PackedLightSample> gLightTiles; ///< Light samples organized in light tiles.
+    StructuredBuffer<PackedSurfaceData> gSurfaceData; ///< Surface data of the current frame.
+    RWStructuredBuffer<PackedReservoir> gReservoirs; ///< Output reservoirs.
 
     // Debug:
 	RWTexture2D<float4> gDebug;
