@@ -57,22 +57,21 @@ struct TemporalReusePass
 	uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
-    LightSampler gLightSampler;
+    LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
 
-    // Resources:
-
+    // Resources
 	Texture2D<float2> gMotionVectors; ///< 2D screen space motion vector.
 	Texture2D<PackedHitInfo> gVBuffer; ///< Fullscreen V-buffer for the primary hits.
 
-    StructuredBuffer<PackedSurfaceData> gSurfaceData;
-    RWStructuredBuffer<PackedNormalDepth> gNormalDepth;
+    StructuredBuffer<PackedSurfaceData> gSurfaceData;   ///< Surface data of the current frame.
+    RWStructuredBuffer<PackedNormalDepth> gNormalDepth; ///< Packed normal and depth of the current frame.
 
-    StructuredBuffer<PackedSurfaceData> gPrevSurfaceData;
-    RWStructuredBuffer<PackedNormalDepth> gPrevNormalDepth;
+    StructuredBuffer<PackedSurfaceData> gPrevSurfaceData;   ///< Surface data of the previous frame.
+    RWStructuredBuffer<PackedNormalDepth> gPrevNormalDepth; ///< Packed normal and depth of the previous frame.
 	StructuredBuffer<PackedReservoir> gPrevReservoirs; ///< Buffer with packed reservoirs from the previous frame.
 	RWStructuredBuffer<PackedReservoir> gReservoirs; ///< Buffer with packed reservoirs.
 
-    // Debug:
+    // Debug
     RWTexture2D<float4> gDebug;
 
     static const float kMaxOffset = 5.f;
@@ -98,7 +97,6 @@ struct TemporalReusePass
         const float3 primaryRayOrigin = gScene.camera.getPosition();
         const float3 primaryRayDir = getPrimaryRayDir(pixel, gFrameDim, gScene.camera);
         const float3 viewVec = -normalize(primaryRayDir);
-
 
         // Reproject the pixel position.
         uint2 reprojPos = uint2(float2(pixel) + gMotionVectors[pixel] * gFrameDim + sampleNext2D(sg));
@@ -245,7 +243,6 @@ struct TemporalReusePass
 #endif
 		// Store combined reservoir.
 		gReservoirs[bufferIndex] = outputReservoir.pack();
-
 	}
 }
 

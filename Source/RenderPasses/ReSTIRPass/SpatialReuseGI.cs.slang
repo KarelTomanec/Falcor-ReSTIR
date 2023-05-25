@@ -30,20 +30,21 @@ struct SpatialReuseGIPass
     static const uint kNeighborCount = GI_SPATIAL_SAMPLE_COUNT;
     static const float kDepthThreshold = GI_DEPTH_THRESHOLD;
     static const float kNormalThreshold = GI_NORMAL_THRESHOLD;
+    static const float kMinRadius = 100.f;
 
 	uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
 	// Resources:
     StructuredBuffer<PackedReservoirGI> gReservoirsGI; ///< Buffer with packed reservoirs.
-    StructuredBuffer<PackedSurfaceData> gSurfaceData;
+    StructuredBuffer<PackedSurfaceData> gSurfaceData; ///< Surface data for the current frame.
 	RWStructuredBuffer<PackedReservoirGI> gOutReservoirsGI; ///< Output buffer with packed reservoirs.
 
     // Debug:
     RWTexture2D<float4> gDebug;
 
 
-    bool evalSegmentVisibility(float3 pos, float3 endPoint)
+    bool evalVisibility(float3 pos, float3 endPoint)
     {
         float3 offset = endPoint - pos;
         float tMax = length(offset);
@@ -65,8 +66,6 @@ struct SpatialReuseGIPass
 
         // Get reservoir with initial candidate samples from the previous pass.
         ReservoirGI currentReservoir = ReservoirGI::unpack(gReservoirsGI[bufferIndex]);
-        // gOutReservoirsGI[bufferIndex] = currentReservoir.pack();
-        // return;
 
 		// Create output reservoir.
 		ReservoirGI outputReservoir;
@@ -108,19 +107,19 @@ struct SpatialReuseGIPass
             SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
             if (!neighborSurfaceData.isValid())
             {
-                radius = max(5.f, radius * 0.5f);
+                radius = max(kMinRadius, radius * 0.5f);
                 continue;
             }
 
             if (neighborReservoir.M == 0.f)
             {
-                radius = max(5.f, radius * 0.5f);
+                radius = max(kMinRadius, radius * 0.5f);
                 continue;
             }
 
             if (!isValidNeighbor(surfaceData.normal, neighborSurfaceData.normal, surfaceData.depth, neighborSurfaceData.depth, kDepthThreshold, kNormalThreshold))
             {
-                radius = max(5.f, radius * 0.5f);
+                radius = max(kMinRadius, radius * 0.5f);
                 continue;
             }
 
@@ -145,7 +144,7 @@ struct SpatialReuseGIPass
             float cosPhiA = -dot(r1q2, neighborLightSample.sampleNormal);
             float cosPhiB = -dot(q1q2, neighborLightSample.sampleNormal);
             if (cosB <= 0.f || cosPhiB <= 0.f) {
-                radius *= 0.5f;
+                radius = max(kMinRadius, radius * 0.5f);
                 continue;
             }
 
@@ -155,7 +154,7 @@ struct SpatialReuseGIPass
             }
 
             // Evaluate visibility
-            bool isVisible = evalSegmentVisibility(rayOrigin, neighborLightSample.samplePoint);
+            bool isVisible = evalVisibility(rayOrigin, neighborLightSample.samplePoint);
             if (!isVisible)
                 neighborReservoirTargetPDF = 0.f;
 
@@ -174,7 +173,7 @@ struct SpatialReuseGIPass
         float targetPdf = luminance(outputReservoir.sample.Le);
         uint Z = 0;
         if (targetPdf > 0.f) {
-            if (evalSegmentVisibility(surfaceData.position, outputReservoir.sample.samplePoint))
+            if (evalVisibility(surfaceData.position, outputReservoir.sample.samplePoint))
                 Z += currentReservoir.M;
 
             [unroll]
@@ -188,7 +187,7 @@ struct SpatialReuseGIPass
                 SurfaceData neighborSurfaceData = SurfaceData::unpack(gSurfaceData[neighborBufferIndex]);
 
                 // Evaluate visibility
-                if (evalSegmentVisibility(computeRayOrigin(neighborSurfaceData.position, neighborSurfaceData.normal), outputReservoir.sample.samplePoint)) {
+                if (evalVisibility(computeRayOrigin(neighborSurfaceData.position, neighborSurfaceData.normal), outputReservoir.sample.samplePoint)) {
                     ReservoirGI neighborReservoir = ReservoirGI::unpack(gReservoirsGI[neighborBufferIndex]);
                     Z += neighborReservoir.M;
                 }

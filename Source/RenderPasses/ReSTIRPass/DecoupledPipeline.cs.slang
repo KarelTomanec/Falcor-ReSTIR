@@ -62,22 +62,22 @@ struct DecoupledPipelinePass
 
     LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).
 
-    // Resources:
-    Texture2D<PackedHitInfo> gVBuffer;
-    StructuredBuffer<PackedLightSample> gLightTiles;
+    // Resources
+    Texture2D<PackedHitInfo> gVBuffer;  ///< Visibility buffer.
+    StructuredBuffer<PackedLightSample> gLightTiles; ///< Light samples organized in light tiles.
 
     RWStructuredBuffer<PackedReservoir> gReservoirs;
-    RWStructuredBuffer<PackedSurfaceData> gSurfaceData;
+    RWStructuredBuffer<PackedSurfaceData> gSurfaceData; ///< Surface data of the current frame.
 
     StructuredBuffer<PackedReservoir> gPrevReservoirs;
-    StructuredBuffer<PackedSurfaceData> gPrevSurfaceData;
+    StructuredBuffer<PackedSurfaceData> gPrevSurfaceData; ///< Surface data of the previous frame.
 
     RWTexture2D<float4> gOutputColor;
     RWTexture2D<float4> gOutputAlbedo;
 
     Texture2D<float2> gMotionVectors; ///< 2D screen space motion vector.
 
-    // Debug:
+    // Debug
 	RWTexture2D<float4> gDebug;
 
 	void execute(const uint2 pixel)

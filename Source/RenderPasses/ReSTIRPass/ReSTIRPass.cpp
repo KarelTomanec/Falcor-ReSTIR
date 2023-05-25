@@ -367,7 +367,7 @@ bool ReSTIRPass::renderRenderingUI(Gui::Widgets& widget)
         if (auto group = widget.group("Temporal resampling", false))
         {
             dirty |= group.var("Max history length", mReSTIRParams.temporalHistoryLength, kMinTemporalHistoryLength, kMaxTemporalHistoryLength);
-            group.tooltip("Maximum history length for temporal reuse [frames].");
+            group.tooltip("Maximum history length for temporal reuse [frames]. This should be lower (<4) for the ray traced unbiased reuse to ensure correct convergence.");
         }
     }
 
@@ -1273,9 +1273,9 @@ AliasTable::SharedPtr ReSTIRPass::createEnvironmentAliasTable(RenderContext* pRe
 
     for (size_t y = 0; y < height; y++)
     {
-        float theta = ((y + 0.5f) / height) * float(M_PI);
-        float dPhi = 2.f * float(M_PI) / width;
-        float dTheta = float(M_PI) / height;
+        float theta = ((y + 0.5f) / height) * static_cast<float>(M_PI);
+        float dPhi = 2.f * static_cast<float>(M_PI) / width;
+        float dTheta = static_cast<float>(M_PI) / height;
         float diffSolidAngle = dPhi * dTheta * std::sin(theta);
 
         for (size_t x = 0; x < width; x++)

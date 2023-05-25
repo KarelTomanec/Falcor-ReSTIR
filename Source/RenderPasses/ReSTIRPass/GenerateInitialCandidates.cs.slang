@@ -83,7 +83,7 @@ struct GenerateInitialCandidatesPass
     uint2 gFrameDim;  ///< Frame dimensions.
     uint gFrameCount; ///< Frame count since scene was loaded.
 
-	EmissiveLightSampler gEmissiveLightSampler;
+    EmissiveLightSampler gEmissiveLightSampler;      ///< Emissive light sampler.
     EnvMapSampler gEnvMapSampler;                    ///< Environment map sampler. Only valid when kUseEnvLight == true.
 
     LightSampler gLightSampler; ///< Custom light wrapper for sampling various kinds of lights (EmissiveGeometry, Environment, ...).

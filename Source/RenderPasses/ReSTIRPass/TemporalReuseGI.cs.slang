@@ -33,14 +33,10 @@ struct TemporalReuseGIPass
 	uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
-    LightSampler gLightSampler;
-
     // Resources:
-
 	Texture2D<float2> gMotionVectors; ///< 2D screen space motion vector.
-
-    StructuredBuffer<PackedSurfaceData> gSurfaceData;
-    StructuredBuffer<PackedSurfaceData> gPrevSurfaceData;
+    StructuredBuffer<PackedSurfaceData> gSurfaceData;   ///< Surface data for the current frame.
+    StructuredBuffer<PackedSurfaceData> gPrevSurfaceData;   ///< Surface data for the previous frame.
 	RWStructuredBuffer<PackedReservoirGI> gPrevGIReservoirs; ///< Buffer with packed reservoirs from the previous frame.
 	StructuredBuffer<PackedReservoirGI> gGIReservoirs; ///< Buffer with packed reservoirs.
 
@@ -60,8 +56,6 @@ struct TemporalReuseGIPass
 
         // Get reservoir with initial candidate samples from the previous pass.
         ReservoirGI currentReservoir = ReservoirGI::unpack(gGIReservoirs[bufferIndex]);
-        // gPrevGIReservoirs[bufferIndex] = currentReservoir.pack();
-        // return;
 
         const float3 primaryRayOrigin = gScene.camera.getPosition();
         const float3 primaryRayDir = getPrimaryRayDir(pixel, gFrameDim, gScene.camera);
@@ -79,7 +73,6 @@ struct TemporalReuseGIPass
         SurfaceData prevSurfaceData;
         uint2 prevPixel = reprojPos;
         bool neighborFound = false;
-
 
         [unroll]
         for (uint i = 0; i < kAttemptCount; i++)

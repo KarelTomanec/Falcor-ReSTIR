@@ -57,12 +57,12 @@ struct SpatialReusePass
 	uint2   gFrameDim; ///< Frame dimensions.
 	uint    gFrameCount; ///< Frame count since scene was loaded.
 
-    LightSampler gLightSampler;
+    LightSampler gLightSampler; ///< Light samples organized in light tiles.
 
 	// Resources:
-    StructuredBuffer<PackedReservoir> gReservoirs; ///< Buffer with packed reservoirs.
-    StructuredBuffer<PackedSurfaceData> gSurfaceData;
-    StructuredBuffer<PackedNormalDepth> gNormalDepth;
+    StructuredBuffer<PackedReservoir> gReservoirs;    ///< Buffer with packed reservoirs.
+    StructuredBuffer<PackedSurfaceData> gSurfaceData; ///< Surface data of the current frame.
+    StructuredBuffer<PackedNormalDepth> gNormalDepth; ///< Packed normal and depth.
 	RWStructuredBuffer<PackedReservoir> gOutReservoirs; ///< Output buffer with packed reservoirs.
 
     // Debug:
@@ -264,7 +264,6 @@ struct SpatialReusePass
         float m = pSum > 0.f ? pStar / pSum : 0.f;
         outputReservoir.W = outputReservoir.W > 0.f ? (outputReservoir.weightSum * m) / outputReservoir.W : 0.f;
 #endif
-        // gDebug[pixel] = float4(outputReservoir.W, 0, 0, 1);
 		// Store reservoir
         gOutReservoirs[bufferIndex] = outputReservoir.pack();
 	}

@@ -97,8 +97,6 @@ struct ShadePass
                 valid = false;
             }
         }
-        // gDebug[pixel] = float4(reservoir.W, 0, 0, 1);
-        // sd.mtl.setActiveLobes((uint)LobeType::DiffuseReflection);
 
         float3 diffuse = float3(0.f);
         float3 specular = float3(0.f);

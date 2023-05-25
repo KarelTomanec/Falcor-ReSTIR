@@ -67,9 +67,7 @@ import Rendering.Lights.EmissiveLightSampler;
 import Rendering.Lights.EmissiveLightSamplerHelpers;
 import Rendering.Lights.EmissivePowerSampler;
 import Rendering.Lights.LightHelpers;
-// import Rendering.Lights.EnvMapSampler;
 
-// import LightSampler;
 import HelperFunctions;
 import ReservoirGI;
 import Utils.Color.ColorHelpers;
@@ -113,16 +111,15 @@ struct ShadowRayData
  */
 struct ScatterRayData
 {
-    float3 radiance;  ///< Accumulated outgoing radiance from path.
-    bool terminated;  ///< Set to true when path is terminated.
-    float3 thp;       ///< Current path throughput. This is updated at each path vertex.
-    uint pathLength;  ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
-    float3 origin;    ///< Next path segment origin.
-    float3 direction; ///< Next path segment direction.
+    float3 radiance;    ///< Accumulated outgoing radiance from path.
+    bool terminated;    ///< Set to true when path is terminated.
+    float3 thp;         ///< Current path throughput. This is updated at each path vertex.
+    uint pathLength;    ///< Path length in number of path segments (0 at origin, 1 at first secondary hit, etc.). Max 2^31.
+    float3 origin;      ///< Next path segment origin.
+    float3 direction;   ///< Next path segment direction.
 
     float3 sampleNormal;
     float3 samplePoint;
-
     float pdf;
 
     SampleGenerator sg; ///< Per-ray state for the sample generator (up to 16B).
@@ -217,13 +214,8 @@ bool generateScatterRay(const ShadingData sd, const IBSDF bsdf, float3 rayOrigin
     if (bsdf.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
     {
         rayData.origin = rayOrigin;
-        // if (bsdfSample.isLobe(LobeType::Transmission))
-        // {
-        //     rayData.origin = sd.computeNewRayOrigin(false);
-        // }
         rayData.direction = bsdfSample.wo;
         rayData.thp *= bsdfSample.weight;
-        // rayData.pdf *= bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
 
@@ -237,12 +229,7 @@ bool generateFirstScatterRay(const ShadingData sd, const IBSDF bsdf, float3 rayO
     if (bsdf.sample(sd, rayData.sg, bsdfSample, kUseImportanceSampling))
     {
         rayData.origin = rayOrigin;
-        // if (bsdfSample.isLobe(LobeType::Transmission))
-        // {
-        //     rayData.origin = sd.computeNewRayOrigin(false);
-        // }
         rayData.direction = bsdfSample.wo;
-        // rayData.thp *= bsdfSample.weight;
         rayData.pdf = bsdfSample.pdf;
         return any(rayData.thp > 0.f);
     }
@@ -438,7 +425,7 @@ void tracePath(const uint2 pixel, const uint2 frameDim)
         sample.Le = rayData.radiance;
         sample.sourcePdf = rayData.pdf;
         sample.valid = rayData.pathLength > 0 ? 1 : 0;
-        gDebug[pixel] = float4(sample.valid, 0, 0, 1);
+
         float targetPdf = luminance(sample.Le);
         reservoir.update(sample, targetPdf, sample.sourcePdf, sg);
 
