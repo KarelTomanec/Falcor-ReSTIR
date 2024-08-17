@@ -1,10 +1,10 @@
 # ReSTIR DI in Falcor
 
-This repository contains an implementation of **ReSTIR DI** (Reservoir-based Spatio-Temporal Importance Resampling for Direct Illumination) within the **Falcor** rendering framework. The code forms the practical component of my master's thesis titled "Efficient Sampling for Computing Complex Illumination in Real-Time."
+This repository contains an implementation of [**ReSTIR DI** (Reservoir-based Spatio-Temporal Importance Resampling for Direct Illumination)](https://research.nvidia.com/publication/2020-07_spatiotemporal-reservoir-resampling-real-time-ray-tracing-dynamic-direct) within the **Falcor** rendering framework. The code forms the practical component of my master's thesis titled ["Efficient Sampling for Computing Complex Illumination in Real-Time"](https://dcgi.fel.cvut.cz/en/theses/2023/tomanka4/)
 
 ## Introduction
 
-This project focuses on implementing the ReSTIR DI algorithm in Falcor, aiming to achieve efficient real-time sampling and rendering of complex illumination. The ReSTIR DI algorithm enhances the quality and performance of direct illumination computations using spatio-temporal resampling techniques, making it highly suitable for real-time applications.
+This project focuses on implementing the ReSTIR DI algorithm in Falcor, aiming to achieve efficient real-time sampling and rendering of complex illumination. ReSTIR offers a highly promising approach to efficiently computing direct illumination by leveraging spatio-temporal resampling techniques, making it suitable for real-time applications. The results demonstrate that ReSTIR is a highly effective approach for achieving high-quality real-time rendering while maintaining interactive performance. 
 
 ## Installation
 
@@ -32,6 +32,10 @@ An example render graph script that utilizes the ReSTIR pass is available in `So
 4. **Experiment with Settings:**
    - After loading the scene, the rendered output should be visible, along with the settings for individual render passes.
    - The settings for the ReSTIR pass are designed to be intuitive for those familiar with the algorithm. For further understanding, please refer to my thesis or consult related academic papers.
+  
+### Documentation
+
+See [thesis](docs/thesis/thesis.pdf).
 
 ## Examples
 ![](docs/images/screenshot.PNG)
