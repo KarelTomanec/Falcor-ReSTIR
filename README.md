@@ -1,7 +1,7 @@
 ![](docs/images/restir_teaser.png)
 # ReSTIR DI in Falcor
 
-This repository contains an implementation of [**ReSTIR DI** (Reservoir-based Spatio-Temporal Importance Resampling for Direct Illumination)](https://research.nvidia.com/publication/2020-07_spatiotemporal-reservoir-resampling-real-time-ray-tracing-dynamic-direct) within the **Falcor** rendering framework. The code forms the practical component of my master's thesis titled ["Efficient Sampling for Computing Complex Illumination in Real-Time"](https://dcgi.fel.cvut.cz/en/theses/2023/tomanka4/)
+This repository contains an implementation of [**ReSTIR DI** (Reservoir-based Spatio-Temporal Importance Resampling for Direct Illumination)](https://research.nvidia.com/publication/2020-07_spatiotemporal-reservoir-resampling-real-time-ray-tracing-dynamic-direct) within the **Falcor** rendering framework. The code forms the practical component of my master's thesis titled [Efficient Sampling for Computing Complex Illumination in Real-Time](https://dcgi.fel.cvut.cz/en/theses/2023/tomanka4/)
 
 ## Introduction
 
