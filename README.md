@@ -1,3 +1,4 @@
+![](docs/images/restirdi_zeroday.png)
 # ReSTIR DI in Falcor
 
 This repository contains an implementation of [**ReSTIR DI** (Reservoir-based Spatio-Temporal Importance Resampling for Direct Illumination)](https://research.nvidia.com/publication/2020-07_spatiotemporal-reservoir-resampling-real-time-ray-tracing-dynamic-direct) within the **Falcor** rendering framework. The code forms the practical component of my master's thesis titled ["Efficient Sampling for Computing Complex Illumination in Real-Time"](https://dcgi.fel.cvut.cz/en/theses/2023/tomanka4/)
@@ -12,7 +13,7 @@ Please refer to the **About Falcor** section below for details on installing the
 
 ## Implementation and Usage
 
-The implementation is encapsulated as a separate render pass located in `\Source\RenderPasses\ReSTIRPass`. This pass can be integrated into the render graph for executing the ReSTIR DI algorithm.
+The implementation is encapsulated as a separate render pass located in `Source\RenderPasses\ReSTIRPass`. This pass can be integrated into the render graph for executing the ReSTIR DI algorithm.
 
 ### Running the Example Render Graph
 
@@ -26,7 +27,7 @@ An example render graph script that utilizes the ReSTIR pass is available in `So
    - Select the `ReSTIR.py` script from `Source\Mogwai\Data\ReSTIR.py`.
 
 3. **Load a Scene:**
-   - You can download scenes from resources such as [ORCA Rendering Resources](https://developer.nvidia.com/orca) (see the **About Falcor - Resources** section below).
+   - You can download scenes from resources such as [ORCA Rendering Resources](https://developer.nvidia.com/orca) (see the **About Falcor** section below).
    - Alternatively, use one of the test scenes available in `media\TestScenes`.
 
 4. **Experiment with Settings:**
@@ -40,7 +41,6 @@ See [thesis](docs/thesis/thesis.pdf).
 ## Examples
 ![](docs/images/screenshot.PNG)
 ![](docs/images/restirdi_bistro.png)
-![](docs/images/restirdi_zeroday.png)
 
 # About Falcor
 
