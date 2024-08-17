@@ -1,6 +1,44 @@
-![](docs/images/teaser.png)
-
 # ReSTIR DI in Falcor
+
+This repository contains an implementation of **ReSTIR DI** (Reservoir-based Spatio-Temporal Importance Resampling for Direct Illumination) within the **Falcor** rendering framework. The code forms the practical component of my master's thesis titled "Efficient Sampling for Computing Complex Illumination in Real-Time."
+
+## Introduction
+
+This project focuses on implementing the ReSTIR DI algorithm in Falcor, aiming to achieve efficient real-time sampling and rendering of complex illumination. The ReSTIR DI algorithm enhances the quality and performance of direct illumination computations using spatio-temporal resampling techniques, making it highly suitable for real-time applications.
+
+## Installation
+
+Please refer to the **About Falcor** section below for details on installing the Falcor framework and other dependencies required to run this implementation.
+
+## Implementation and Usage
+
+The implementation is encapsulated as a separate render pass located in `\Source\RenderPasses\ReSTIRPass`. This pass can be integrated into the render graph for executing the ReSTIR DI algorithm.
+
+### Running the Example Render Graph
+
+An example render graph script that utilizes the ReSTIR pass is available in `Source\Mogwai\Data\ReSTIR.py`. To run this script:
+
+1. **Open Mogwai:**
+   Launch the Mogwai project from the Falcor framework.
+
+2. **Load the Render Graph:**
+   - Navigate to `File -> Load Script`.
+   - Select the `ReSTIR.py` script from `Source\Mogwai\Data\ReSTIR.py`.
+
+3. **Load a Scene:**
+   - You can download scenes from resources such as [ORCA Rendering Resources](https://developer.nvidia.com/orca) (see the **About Falcor - Resources** section below).
+   - Alternatively, use one of the test scenes available in `media\TestScenes`.
+
+4. **Experiment with Settings:**
+   - After loading the scene, the rendered output should be visible, along with the settings for individual render passes.
+   - The settings for the ReSTIR pass are designed to be intuitive for those familiar with the algorithm. For further understanding, please refer to my thesis or consult related academic papers.
+
+## Examples
+![](docs/images/screenshot.PNG)
+![](docs/images/restirdi_bistro.png)
+![](docs/images/restirdi_zeroday.png)
+
+# About Falcor
 
 Falcor is a real-time rendering framework supporting DirectX 12. It aims to improve productivity of research and prototype projects.
 
