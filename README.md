@@ -39,6 +39,8 @@ An example render graph script that utilizes the ReSTIR pass is available in `So
 See [thesis](docs/thesis/thesis.pdf).
 
 ## Examples
+[video](https://youtu.be/CCJOeeGfKTU?si=GMCQR7HIYuCQu1Nx)
+
 ![](docs/images/screenshot.PNG)
 ![](docs/images/restirdi_bistro.png)
 
