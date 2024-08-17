@@ -1,21 +1,12 @@
 ![](docs/images/teaser.png)
 
-# Falcor 5.2
+# ReSTIR DI in Falcor
 
 Falcor is a real-time rendering framework supporting DirectX 12. It aims to improve productivity of research and prototype projects.
 
-Features include:
-* Abstracting many common graphics operations, such as shader compilation, model loading, and scene rendering
-* DirectX Raytracing abstraction
-* Render Graph system
-* Python scripting
-* Common rendering effects such as shadows and post-processing effects
-* Unbiased path tracer
-* Integration of various RTX SDKs: DLSS, RTXGI, RTXDI, NRD
-
 ## Prerequisites
 - Windows 10 version 20H2 (October 2020 Update) or newer, OS build revision .789 or newer
-- Visual Studio 2019
+- Visual Studio 2019 or 2022
 - [Windows 10 SDK (10.0.19041.0) for Windows 10, version 2004](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk/)
 - A GPU which supports DirectX Raytracing, such as the NVIDIA Titan V or GeForce RTX
 - NVIDIA driver 466.11 or newer
@@ -102,19 +93,3 @@ Note that these SDKs are not under the same license as Falcor, see [LICENSE.md](
     - [Render Graph Tutorials](./docs/tutorials/index.md)
 - [Rendering Resources](https://benedikt-bitterli.me/resources) A collection of scenes loadable in Falcor (pbrt-v4 format).
 - [ORCA](https://developer.nvidia.com/orca): A collection of scenes and assets optimized for Falcor.
-- [Slang](https://github.com/shader-slang/slang): Falcor's shading language and compiler.
-
-## Citation
-If you use Falcor in a research project leading to a publication, please cite the project.
-The BibTex entry is
-
-```bibtex
-@Misc{Kallweit22,
-   author =      {Simon Kallweit and Petrik Clarberg and Craig Kolb and Tom{'a}{\v s} Davidovi{\v c} and Kai-Hwa Yao and Theresa Foley and Yong He and Lifan Wu and Lucy Chen and Tomas Akenine-M{\"o}ller and Chris Wyman and Cyril Crassin and Nir Benty},
-   title =       {The {Falcor} Rendering Framework},
-   year =        {2022},
-   month =       {8},
-   url =         {https://github.com/NVIDIAGameWorks/Falcor},
-   note =        {\url{https://github.com/NVIDIAGameWorks/Falcor}}
-}
-```
